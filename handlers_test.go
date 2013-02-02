@@ -5,9 +5,12 @@
 package handlers
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 )
 
 const (
@@ -65,5 +68,38 @@ func TestMethodHandler(t *testing.T) {
 		if body := rec.Body.String(); body != test.body {
 			t.Fatalf("%d: wrong body, got %q want %q", i, body, test.body)
 		}
+	}
+}
+
+func TestWriteLog(t *testing.T) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		panic(err)
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	// A typical request with an OK response
+	req := newRequest("GET", "http://example.com")
+	req.RemoteAddr = "192.168.100.5"
+
+	buf := new(bytes.Buffer)
+	writeLog(buf, req, ts, http.StatusOK, 100)
+	log := buf.String()
+
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET  HTTP/1.1\" 200 100\n"
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+
+	// Request with an unauthorized user
+	req.URL.User = url.User("kamil")
+
+	buf.Reset()
+	writeLog(buf, req, ts, http.StatusUnauthorized, 500)
+	log = buf.String()
+
+	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET  HTTP/1.1\" 401 500\n"
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
 }
