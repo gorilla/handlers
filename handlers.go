@@ -52,11 +52,24 @@ type loggingHandler struct {
 	handler http.Handler
 }
 
+// combinedLoggingHandler is the http.Handler implementation for LoggingHandlerTo and its friends
+type combinedLoggingHandler struct {
+	writer  io.Writer
+	handler http.Handler
+}
+
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	logger := responseLogger{w: w}
 	h.handler.ServeHTTP(&logger, req)
 	writeLog(h.writer, req, t, logger.status, logger.size)
+}
+
+func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	t := time.Now()
+	logger := responseLogger{w: w}
+	h.handler.ServeHTTP(&logger, req)
+	writeCombinedLog(h.writer, req, t, logger.status, logger.size)
 }
 
 // responseLogger is wrapper of http.ResponseWriter that keeps track of its HTTP status
@@ -86,17 +99,18 @@ func (l *responseLogger) WriteHeader(s int) {
 	l.status = s
 }
 
-// writeLog writes a log entry for req to w in Apache Common Log Format.
+// buildCommonLogLine builds a log entry for req in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
+func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) string {
 	username := "-"
 	if req.URL.User != nil {
 		if name := req.URL.User.Username(); name != "" {
 			username = name
 		}
 	}
-	fmt.Fprintf(w, "%s - %s [%s] \"%s %s %s\" %d %d\n",
+
+	return fmt.Sprintf("%s - %s [%s] \"%s %s %s\" %d %d",
 		strings.Split(req.RemoteAddr, ":")[0],
 		username,
 		ts.Format("02/Jan/2006:15:04:05 -0700"),
@@ -106,6 +120,33 @@ func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 		status,
 		size,
 	)
+}
+
+// writeLog writes a log entry for req to w in Apache Common Log Format.
+// ts is the timestamp with which the entry should be logged.
+// status and size are used to provide the response HTTP status and size.
+func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
+	line := buildCommonLogLine(req, ts, status, size) + "\n"
+	fmt.Fprintf(w, line)
+}
+
+// writeCombinedLog writes a log entry for req to w in Apache Combined Log Format.
+// ts is the timestamp with which the entry should be logged.
+// status and size are used to provide the response HTTP status and size.
+func writeCombinedLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
+	line := buildCommonLogLine(req, ts, status, size)
+	combinedLine := fmt.Sprintf("%s \"%s\" \"%s\"\n", line, req.Referer(), req.UserAgent())
+	fmt.Fprintf(w, combinedLine)
+}
+
+// CombinedLoggingHandler return a http.Handler that wraps h and logs requests to out in
+// Apache Combined Log Format.
+//
+// See http://httpd.apache.org/docs/2.2/logs.html#combined for a description of this format.
+//
+// LoggingHandler always sets the ident field of the log to -
+func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
+	return combinedLoggingHandler{out, h}
 }
 
 // LoggingHandler return a http.Handler that wraps h and logs requests to out in
