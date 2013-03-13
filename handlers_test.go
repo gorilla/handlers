@@ -103,3 +103,46 @@ func TestWriteLog(t *testing.T) {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
 }
+
+func TestWriteCombinedLog(t *testing.T) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		panic(err)
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	// A typical request with an OK response
+	req := newRequest("GET", "http://example.com")
+	req.RemoteAddr = "192.168.100.5"
+	req.Header.Set("Referer", "http://example.com")
+	req.Header.Set(
+		"User-Agent",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/537.33 "+
+			"(KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33",
+	)
+
+	buf := new(bytes.Buffer)
+	writeCombinedLog(buf, req, ts, http.StatusOK, 100)
+	log := buf.String()
+
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET  HTTP/1.1\" 200 100 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+
+	// Request with an unauthorized user
+	req.URL.User = url.User("kamil")
+
+	buf.Reset()
+	writeCombinedLog(buf, req, ts, http.StatusUnauthorized, 500)
+	log = buf.String()
+
+	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET  HTTP/1.1\" 401 500 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+}
