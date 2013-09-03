@@ -115,7 +115,7 @@ func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) s
 		username,
 		ts.Format("02/Jan/2006:15:04:05 -0700"),
 		req.Method,
-		req.RequestURI,
+		req.URL.RequestURI(),
 		req.Proto,
 		status,
 		size,
@@ -127,7 +127,7 @@ func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) s
 // status and size are used to provide the response HTTP status and size.
 func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 	line := buildCommonLogLine(req, ts, status, size) + "\n"
-	fmt.Fprintf(w, line)
+	fmt.Fprint(w, line)
 }
 
 // writeCombinedLog writes a log entry for req to w in Apache Combined Log Format.
@@ -136,7 +136,7 @@ func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 func writeCombinedLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 	line := buildCommonLogLine(req, ts, status, size)
 	combinedLine := fmt.Sprintf("%s \"%s\" \"%s\"\n", line, req.Referer(), req.UserAgent())
-	fmt.Fprintf(w, combinedLine)
+	fmt.Fprint(w, combinedLine)
 }
 
 // CombinedLoggingHandler return a http.Handler that wraps h and logs requests to out in

@@ -86,19 +86,34 @@ func TestWriteLog(t *testing.T) {
 	writeLog(buf, req, ts, http.StatusOK, 100)
 	log := buf.String()
 
-	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET  HTTP/1.1\" 200 100\n"
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100\n"
 	if log != expected {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
 
 	// Request with an unauthorized user
+	req = newRequest("GET", "http://example.com")
+	req.RemoteAddr = "192.168.100.5"
 	req.URL.User = url.User("kamil")
 
 	buf.Reset()
 	writeLog(buf, req, ts, http.StatusUnauthorized, 500)
 	log = buf.String()
 
-	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET  HTTP/1.1\" 401 500\n"
+	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500\n"
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+
+	// Request with url encoded parameters
+	req = newRequest("GET", "http://example.com/test?abc=hello%20world&a=b%3F")
+	req.RemoteAddr = "192.168.100.5"
+
+	buf.Reset()
+	writeLog(buf, req, ts, http.StatusOK, 100)
+	log = buf.String()
+
+	expected = "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET /test?abc=hello%20world&a=b%3F HTTP/1.1\" 200 100\n"
 	if log != expected {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
@@ -125,7 +140,7 @@ func TestWriteCombinedLog(t *testing.T) {
 	writeCombinedLog(buf, req, ts, http.StatusOK, 100)
 	log := buf.String()
 
-	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET  HTTP/1.1\" 200 100 \"http://example.com\" " +
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
 	if log != expected {
@@ -139,7 +154,7 @@ func TestWriteCombinedLog(t *testing.T) {
 	writeCombinedLog(buf, req, ts, http.StatusUnauthorized, 500)
 	log = buf.String()
 
-	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET  HTTP/1.1\" 401 500 \"http://example.com\" " +
+	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
 	if log != expected {
