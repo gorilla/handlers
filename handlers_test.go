@@ -92,6 +92,8 @@ func TestWriteLog(t *testing.T) {
 	}
 
 	// Request with an unauthorized user
+	req = newRequest("GET", "http://example.com")
+	req.RemoteAddr = "192.168.100.5"
 	req.URL.User = url.User("kamil")
 
 	buf.Reset()
@@ -99,6 +101,19 @@ func TestWriteLog(t *testing.T) {
 	log = buf.String()
 
 	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500\n"
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+
+	// Request with url encoded parameters
+	req = newRequest("GET", "http://example.com/test?abc=hello%20world&a=b%3F")
+	req.RemoteAddr = "192.168.100.5"
+
+	buf.Reset()
+	writeLog(buf, req, ts, http.StatusOK, 100)
+	log = buf.String()
+
+	expected = "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET /test?abc=hello%20world&a=b%3F HTTP/1.1\" 200 100\n"
 	if log != expected {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
