@@ -115,7 +115,7 @@ func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) s
 		username,
 		ts.Format("02/Jan/2006:15:04:05 -0700"),
 		req.Method,
-		req.RequestURI,
+		req.URL.RequestURI(),
 		req.Proto,
 		status,
 		size,
