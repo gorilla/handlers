@@ -10,6 +10,7 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sort"
 	"strings"
@@ -110,8 +111,14 @@ func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) s
 		}
 	}
 
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+
+	if err != nil {
+		host = req.RemoteAddr
+	}
+
 	return fmt.Sprintf("%s - %s [%s] \"%s %s %s\" %d %d",
-		strings.Split(req.RemoteAddr, ":")[0],
+		host,
 		username,
 		ts.Format("02/Jan/2006:15:04:05 -0700"),
 		req.Method,
