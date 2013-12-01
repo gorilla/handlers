@@ -135,8 +135,7 @@ func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 // status and size are used to provide the response HTTP status and size.
 func writeCombinedLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 	line := buildCommonLogLine(req, ts, status, size)
-	combinedLine := fmt.Sprintf("%s \"%s\" \"%s\"\n", line, req.Referer(), req.UserAgent())
-	fmt.Fprint(w, combinedLine)
+	fmt.Fprintf(w, `%s "%s" "%s"`+"\n", line, req.Referer(), req.UserAgent())
 }
 
 // CombinedLoggingHandler return a http.Handler that wraps h and logs requests to out in
