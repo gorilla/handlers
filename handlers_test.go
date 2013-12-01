@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"bytes"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -155,6 +156,34 @@ func TestWriteCombinedLog(t *testing.T) {
 	log = buf.String()
 
 	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+
+	// Test with remote ipv6 address
+	req.RemoteAddr = "::1"
+
+	buf.Reset()
+	writeCombinedLog(buf, req, ts, http.StatusOK, 100)
+	log = buf.String()
+
+	expected = "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+
+	// Test remote ipv6 addr, with port
+	req.RemoteAddr = net.JoinHostPort("::1", "65000")
+
+	buf.Reset()
+	writeCombinedLog(buf, req, ts, http.StatusOK, 100)
+	log = buf.String()
+
+	expected = "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
 	if log != expected {
