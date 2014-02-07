@@ -63,11 +63,10 @@ type combinedLoggingHandler struct {
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	var logger loggingResponseWriter
-	switch rw := w.(type) {
-	case responseWriterHijacker:
-		logger = &hijackLogger{w: rw}
-	default:
-		logger = &responseLogger{w: rw}
+	if _, ok := w.(http.Hijacker); ok {
+		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
+	} else {
+		logger = &responseLogger{w: w}
 	}
 	h.handler.ServeHTTP(logger, req)
 	writeLog(h.writer, req, t, logger.Status(), logger.Size())
@@ -76,11 +75,10 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	var logger loggingResponseWriter
-	switch rw := w.(type) {
-	case responseWriterHijacker:
-		logger = &hijackLogger{w: rw}
-	default:
-		logger = &responseLogger{w: rw}
+	if _, ok := w.(http.Hijacker); ok {
+		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
+	} else {
+		logger = &responseLogger{w: w}
 	}
 	h.handler.ServeHTTP(logger, req)
 	writeCombinedLog(h.writer, req, t, logger.Status(), logger.Size())
@@ -131,56 +129,18 @@ func (l *responseLogger) Size() int {
 	return l.size
 }
 
-// ResponseWriterHijacker combines both http.ResponseWriter and http.Hijacker interfaces
-type responseWriterHijacker interface {
-	// http.ResponseWriter
-	Header() http.Header
-	Write([]byte) (int, error)
-	WriteHeader(int)
-	// http.Hijacker
-	Hijack() (net.Conn, *bufio.ReadWriter, error)
-}
-
 type hijackLogger struct {
-	w      responseWriterHijacker
-	status int
-	size   int
-}
-
-func (l *hijackLogger) Header() http.Header {
-	return l.w.Header()
-}
-
-func (l *hijackLogger) Write(b []byte) (int, error) {
-	if l.status == 0 {
-		// The status will be StatusOK if WriteHeader has not been called yet
-		l.status = http.StatusOK
-	}
-	size, err := l.w.Write(b)
-	l.size += size
-	return size, err
-}
-
-func (l *hijackLogger) WriteHeader(status int) {
-	l.w.WriteHeader(status)
-	l.status = status
+	responseLogger
 }
 
 func (l *hijackLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	conn, rw, err := l.w.Hijack()
-	if err == nil && l.status == 0 {
+	h := l.responseLogger.w.(http.Hijacker)
+	conn, rw, err := h.Hijack()
+	if err == nil && l.responseLogger.status == 0 {
 		// The status will be StatusSwitchingProtocols if there was no error and WriteHeader has not been called yet
-		l.status = http.StatusSwitchingProtocols
+		l.responseLogger.status = http.StatusSwitchingProtocols
 	}
 	return conn, rw, err
-}
-
-func (l *hijackLogger) Status() int {
-	return l.status
-}
-
-func (l *hijackLogger) Size() int {
-	return l.size
 }
 
 // buildCommonLogLine builds a log entry for req in Apache Common Log Format.
