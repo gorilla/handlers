@@ -85,11 +85,7 @@ func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 }
 
 type loggingResponseWriter interface {
-	// http.ResponseWriter
-	Header() http.Header
-	Write([]byte) (int, error)
-	WriteHeader(int)
-
+	http.ResponseWriter
 	Status() int
 	Size() int
 }
