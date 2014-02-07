@@ -8,6 +8,7 @@ Package handlers is a collection of handlers for use with Go's net/http package.
 package handlers
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net"
@@ -61,16 +62,32 @@ type combinedLoggingHandler struct {
 
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
-	logger := responseLogger{w: w}
-	h.handler.ServeHTTP(&logger, req)
-	writeLog(h.writer, req, t, logger.status, logger.size)
+	var logger loggingResponseWriter
+	if _, ok := w.(http.Hijacker); ok {
+		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
+	} else {
+		logger = &responseLogger{w: w}
+	}
+	h.handler.ServeHTTP(logger, req)
+	writeLog(h.writer, req, t, logger.Status(), logger.Size())
 }
 
 func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
-	logger := responseLogger{w: w}
-	h.handler.ServeHTTP(&logger, req)
-	writeCombinedLog(h.writer, req, t, logger.status, logger.size)
+	var logger loggingResponseWriter
+	if _, ok := w.(http.Hijacker); ok {
+		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
+	} else {
+		logger = &responseLogger{w: w}
+	}
+	h.handler.ServeHTTP(logger, req)
+	writeCombinedLog(h.writer, req, t, logger.Status(), logger.Size())
+}
+
+type loggingResponseWriter interface {
+	http.ResponseWriter
+	Status() int
+	Size() int
 }
 
 // responseLogger is wrapper of http.ResponseWriter that keeps track of its HTTP status
@@ -98,6 +115,28 @@ func (l *responseLogger) Write(b []byte) (int, error) {
 func (l *responseLogger) WriteHeader(s int) {
 	l.w.WriteHeader(s)
 	l.status = s
+}
+
+func (l *responseLogger) Status() int {
+	return l.status
+}
+
+func (l *responseLogger) Size() int {
+	return l.size
+}
+
+type hijackLogger struct {
+	responseLogger
+}
+
+func (l *hijackLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h := l.responseLogger.w.(http.Hijacker)
+	conn, rw, err := h.Hijack()
+	if err == nil && l.responseLogger.status == 0 {
+		// The status will be StatusSwitchingProtocols if there was no error and WriteHeader has not been called yet
+		l.responseLogger.status = http.StatusSwitchingProtocols
+	}
+	return conn, rw, err
 }
 
 // buildCommonLogLine builds a log entry for req in Apache Common Log Format.
