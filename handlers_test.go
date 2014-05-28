@@ -190,3 +190,22 @@ func TestWriteCombinedLog(t *testing.T) {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
 }
+
+func BenchmarkWriteLog(b *testing.B) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		b.Fatalf(err.Error())
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	req := newRequest("GET", "http://example.com")
+	req.RemoteAddr = "192.168.100.5"
+
+	b.ResetTimer()
+
+	buf := &bytes.Buffer{}
+	for i := 0; i < b.N; i++ {
+		buf.Reset()
+		writeLog(buf, req, ts, http.StatusUnauthorized, 500)
+	}
+}
