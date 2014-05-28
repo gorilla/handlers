@@ -156,7 +156,7 @@ func buildCommonLogLine(w io.Writer, req *http.Request, ts time.Time, status int
 		host = req.RemoteAddr
 	}
 
-	io.WriteString(w, host+" - "+username+" ["+ts.Format("02/Jan/2006:15:04:05 -0700")+"] \""+req.Method+" "+req.URL.RequestURI()+" "+req.Proto+"\" "+strconv.Itoa(status)+" "+strconv.Itoa(size))
+	io.WriteString(w, host+" - "+username+" ["+ts.Format("02/Jan/2006:15:04:05 -0700")+`] "`+req.Method+" "+req.URL.RequestURI()+" "+req.Proto+`" `+strconv.Itoa(status)+" "+strconv.Itoa(size))
 }
 
 // writeLog writes a log entry for req to w in Apache Common Log Format.
@@ -172,7 +172,7 @@ func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 // status and size are used to provide the response HTTP status and size.
 func writeCombinedLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 	buildCommonLogLine(w, req, ts, status, size)
-	io.WriteString(w, " \""+req.Referer()+"\" \""+req.UserAgent()+"\"\n")
+	io.WriteString(w, ` "`+req.Referer()+`" "`+req.UserAgent()+`"`+"\n")
 }
 
 // CombinedLoggingHandler return a http.Handler that wraps h and logs requests to out in
