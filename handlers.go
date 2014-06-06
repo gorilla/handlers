@@ -142,7 +142,7 @@ func (l *hijackLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 // buildCommonLogLine builds a log entry for req in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func buildCommonLogLine(w io.Writer, req *http.Request, ts time.Time, status int, size int) {
+func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) string {
 	username := "-"
 	if req.URL.User != nil {
 		if name := req.URL.User.Username(); name != "" {
@@ -156,23 +156,23 @@ func buildCommonLogLine(w io.Writer, req *http.Request, ts time.Time, status int
 		host = req.RemoteAddr
 	}
 
-	io.WriteString(w, host+" - "+username+" ["+ts.Format("02/Jan/2006:15:04:05 -0700")+`] "`+req.Method+" "+req.URL.RequestURI()+" "+req.Proto+`" `+strconv.Itoa(status)+" "+strconv.Itoa(size))
+	return host + " - " + username + " [" + ts.Format("02/Jan/2006:15:04:05 -0700") + `] "` + req.Method + " " + req.URL.RequestURI() + " " + req.Proto + `" ` + strconv.Itoa(status) + " " + strconv.Itoa(size)
 }
 
 // writeLog writes a log entry for req to w in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
 func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
-	buildCommonLogLine(w, req, ts, status, size)
-	io.WriteString(w, "\n")
+	l := buildCommonLogLine(req, ts, status, size)
+	io.WriteString(w, l+"\n")
 }
 
 // writeCombinedLog writes a log entry for req to w in Apache Combined Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
 func writeCombinedLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
-	buildCommonLogLine(w, req, ts, status, size)
-	io.WriteString(w, ` "`+req.Referer()+`" "`+req.UserAgent()+`"`+"\n")
+	l := buildCommonLogLine(req, ts, status, size)
+	io.WriteString(w, l+` "`+req.Referer()+`" "`+req.UserAgent()+`"`+"\n")
 }
 
 // CombinedLoggingHandler return a http.Handler that wraps h and logs requests to out in
