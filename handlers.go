@@ -226,7 +226,7 @@ func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) [
 
 	uri := req.URL.RequestURI()
 
-	buf := make([]byte, 0, 3*len(uri)/2)
+	buf := make([]byte, 0, 3*(len(host)+len(username)+len(req.Method)+len(uri)+len(req.Proto)+50)/2)
 	buf = append(buf, host...)
 	buf = append(buf, " - "...)
 	buf = append(buf, username...)
