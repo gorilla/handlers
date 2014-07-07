@@ -32,7 +32,7 @@ func CompressHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	L:
 		for _, enc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
-			switch enc {
+			switch strings.TrimSpace(enc) {
 			case "gzip":
 				w.Header().Set("Content-Encoding", "gzip")
 				w.Header().Add("Vary", "Accept-Encoding")
