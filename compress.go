@@ -5,21 +5,23 @@
 package handlers
 
 import (
+	"compress/flate"
 	"compress/gzip"
+	"io"
 	"net/http"
 	"strings"
 )
 
-type gzipResponseWriter struct {
-	*gzip.Writer
+type compressResponseWriter struct {
+	io.Writer
 	http.ResponseWriter
 }
 
-func (w *gzipResponseWriter) Header() http.Header {
+func (w *compressResponseWriter) Header() http.Header {
 	return w.ResponseWriter.Header()
 }
 
-func (w *gzipResponseWriter) Write(b []byte) (int, error) {
+func (w *compressResponseWriter) Write(b []byte) (int, error) {
 	h := w.ResponseWriter.Header()
 	if h.Get("Content-Type") == "" {
 		h.Set("Content-Type", http.DetectContentType(b))
@@ -40,8 +42,20 @@ func CompressHandler(h http.Handler) http.Handler {
 				gw := gzip.NewWriter(w)
 				defer gw.Close()
 
-				w = &gzipResponseWriter{
+				w = &compressResponseWriter{
 					Writer:         gw,
+					ResponseWriter: w,
+				}
+				break L
+			case "deflate":
+				w.Header().Set("Content-Encoding", "deflate")
+				w.Header().Add("Vary", "Accept-Encoding")
+
+				fw, _ := flate.NewWriter(w, -1)
+				defer fw.Close()
+
+				w = &compressResponseWriter{
+					Writer:         fw,
 					ResponseWriter: w,
 				}
 				break L

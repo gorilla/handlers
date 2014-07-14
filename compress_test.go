@@ -11,40 +11,55 @@ import (
 	"testing"
 )
 
-func TestCompressHandler(t *testing.T) {
-	handler := CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func compressedRequest(w *httptest.ResponseRecorder, compression string) {
+	CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for i := 0; i < 1024; i++ {
 			io.WriteString(w, "Gorilla!\n")
 		}
-	}))
+	})).ServeHTTP(w, &http.Request{
+		Method: "GET",
+		Header: http.Header{
+			"Accept-Encoding": []string{compression},
+		},
+	})
 
-	reqs := []*http.Request{
-		{
-			Method: "GET",
-			Header: http.Header{
-				"Accept-Encoding": []string{"gzip"},
-			},
-		},
-		// curl
-		{
-			Method: "GET",
-			Header: http.Header{
-				"Accept-Encoding": []string{"deflate, gzip "},
-			},
-		},
+}
+
+func TestCompressHandlerGzip(t *testing.T) {
+	w := httptest.NewRecorder()
+	compressedRequest(w, "gzip")
+	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
+		t.Fatalf("wrong content encoding, got %d want %d", w.HeaderMap.Get("Content-Encoding"), "gzip")
 	}
+	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
+		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
+	}
+	if w.Body.Len() != 72 {
+		t.Fatalf("wrong len, got %d want %d", w.Body.Len(), 72)
+	}
+}
 
-	for _, r := range reqs {
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, r)
-		if w.HeaderMap.Get("Content-Encoding") != "gzip" {
-			t.Fatalf("wrong content encoding, got %s want %s", w.HeaderMap.Get("Content-Encoding"), "gzip")
-		}
-		if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
-			t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
-		}
-		if w.Body.Len() != 72 {
-			t.Fatalf("wrong len, got %d want %d", w.Body.Len(), 72)
-		}
+func TestCompressHandlerDeflate(t *testing.T) {
+	w := httptest.NewRecorder()
+	compressedRequest(w, "deflate")
+	if w.HeaderMap.Get("Content-Encoding") != "deflate" {
+		t.Fatalf("wrong content encoding, got %d want %d", w.HeaderMap.Get("Content-Encoding"), "deflate")
+	}
+	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
+		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
+	}
+	if w.Body.Len() != 54 {
+		t.Fatalf("wrong len, got %d want %d", w.Body.Len(), 54)
+	}
+}
+
+func TestCompressHandlerGzipDeflate(t *testing.T) {
+	w := httptest.NewRecorder()
+	compressedRequest(w, "gzip, deflate ")
+	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
+		t.Fatalf("wrong content encoding, got %s want %s", w.HeaderMap.Get("Content-Encoding"), "gzip")
+	}
+	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
+		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
 }
