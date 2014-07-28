@@ -191,6 +191,41 @@ func TestWriteCombinedLog(t *testing.T) {
 	}
 }
 
+func TestWriteForwardedLog(t *testing.T) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		panic(err)
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	// A request with X-Forwarded-For set
+	req := newRequest("GET", "http://example.com")
+	req.RemoteAddr = "192.168.100.5"
+	req.Header.Set("X-Forwarded-For", "123.168.100.5")
+
+	buf := new(bytes.Buffer)
+	writeForwardedLog(buf, req, ts, http.StatusOK, 100)
+	log := buf.String()
+
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 123.168.100.5\n"
+	if log != expected {
+		t.Fatalf("wrong forwarded log, got %q want %q", log, expected)
+	}
+
+	// A request wtihout X-Forwarded_For set
+	req = newRequest("GET", "http://example.com")
+	req.RemoteAddr = "192.168.100.5"
+
+	buf = new(bytes.Buffer)
+	writeForwardedLog(buf, req, ts, http.StatusOK, 100)
+	log = buf.String()
+
+	expected = "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \n"
+	if log != expected {
+		t.Fatalf("wrong forwarded log, got %q want %q", log, expected)
+	}
+}
+
 func BenchmarkWriteLog(b *testing.B) {
 	loc, err := time.LoadLocation("Europe/Warsaw")
 	if err != nil {
