@@ -61,6 +61,11 @@ type combinedLoggingHandler struct {
 	handler http.Handler
 }
 
+type forwardedLoggingHandler struct {
+	writer  io.Writer
+	handler http.Handler
+}
+
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	var logger loggingResponseWriter
@@ -83,6 +88,18 @@ func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	}
 	h.handler.ServeHTTP(logger, req)
 	writeCombinedLog(h.writer, req, t, logger.Status(), logger.Size())
+}
+
+func (h forwardedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	t := time.Now()
+	var logger loggingResponseWriter
+	if _, ok := w.(http.Hijacker); ok {
+		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
+	} else {
+		logger = &responseLogger{w: w}
+	}
+	h.handler.ServeHTTP(logger, req)
+	writeForwardedLog(h.writer, req, t, logger.Status(), logger.Size())
 }
 
 type loggingResponseWriter interface {
@@ -267,6 +284,14 @@ func writeCombinedLog(w io.Writer, req *http.Request, ts time.Time, status, size
 	w.Write(buf)
 }
 
+func writeForwardedLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
+	buf := buildCommonLogLine(req, ts, status, size)
+	buf = append(buf, ' ')
+	buf = append(buf, req.Header.Get("X-Forwarded-For")...)
+	buf = append(buf, '\n')
+	w.Write(buf)
+}
+
 // CombinedLoggingHandler return a http.Handler that wraps h and logs requests to out in
 // Apache Combined Log Format.
 //
@@ -285,4 +310,8 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 // LoggingHandler always sets the ident field of the log to -
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h}
+}
+
+func ForwardedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
+	return forwardedLoggingHandler{out, h}
 }
