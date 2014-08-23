@@ -9,6 +9,7 @@ package handlers
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -288,4 +289,36 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 // LoggingHandler always sets the ident field of the log to -
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h}
+}
+
+// isContentType validates the Content-Type header
+// is contentType. That is, its type and subtype match.
+func isContentType(h http.Header, contentType string) bool {
+	ct := h.Get("Content-Type")
+	if i := strings.IndexRune(ct, ';'); i != -1 {
+		ct = ct[0:i]
+	}
+	return ct == contentType
+}
+
+// ContentTypeHandler wraps and returns a http.Handler, validating the request content type
+// is acompatible with the contentTypes list.
+// It writes a HTTP 415 error if that fails.
+//
+// Only PUT, POST, and PATCH requests are considered.
+func ContentTypeHandler(h http.Handler, contentTypes ...string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !(r.Method == "PUT" || r.Method == "POST" || r.Method == "PATCH") {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		for _, ct := range contentTypes {
+			if isContentType(r.Header, ct) {
+				h.ServeHTTP(w, r)
+				return
+			}
+		}
+		http.Error(w, fmt.Sprintf("Unsupported content type %q; expected one of %q", r.Header.Get("Content-Type"), contentTypes), http.StatusUnsupportedMediaType)
+	})
 }

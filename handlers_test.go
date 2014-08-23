@@ -226,3 +226,35 @@ func BenchmarkWriteLog(b *testing.B) {
 		writeLog(buf, req, *req.URL, ts, http.StatusUnauthorized, 500)
 	}
 }
+
+func TestContentTypeHandler(t *testing.T) {
+	tests := []struct {
+		Method            string
+		AllowContentTypes []string
+		ContentType       string
+		Code              int
+	}{
+		{"POST", []string{"application/json"}, "application/json", http.StatusOK},
+		{"POST", []string{"application/json", "application/xml"}, "application/json", http.StatusOK},
+		{"POST", []string{"application/json"}, "application/json; charset=utf-8", http.StatusOK},
+		{"POST", []string{"application/json"}, "application/json+xxx", http.StatusUnsupportedMediaType},
+		{"POST", []string{"application/json"}, "text/plain", http.StatusUnsupportedMediaType},
+		{"GET", []string{"application/json"}, "", http.StatusOK},
+		{"GET", []string{}, "", http.StatusOK},
+	}
+	for _, test := range tests {
+		r, err := http.NewRequest(test.Method, "/", nil)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		h := ContentTypeHandler(okHandler, test.AllowContentTypes...)
+		r.Header.Set("Content-Type", test.ContentType)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != test.Code {
+			t.Errorf("expected %d, got %d", test.Code, w.Code)
+		}
+	}
+}
