@@ -15,10 +15,9 @@ import (
 	"time"
 )
 
-const (
-	ok         = "ok\n"
-	notAllowed = "Method not allowed\n"
-)
+const ok = "ok\n"
+
+var notAllowed = http.StatusText(http.StatusMethodNotAllowed) + "\n"
 
 var okHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte(ok))
@@ -45,17 +44,17 @@ func TestMethodHandler(t *testing.T) {
 		{newRequest("OPTIONS", "/foo"), MethodHandler{}, http.StatusOK, "", ""},
 
 		// A single handler
-		{newRequest("GET", "/foo"), MethodHandler{"GET": okHandler}, http.StatusOK, "", ok},
-		{newRequest("POST", "/foo"), MethodHandler{"GET": okHandler}, http.StatusMethodNotAllowed, "GET", notAllowed},
+		{newRequest("GET", "/foo"), MethodHandler{Get: okHandler}, http.StatusOK, "", ok},
+		{newRequest("POST", "/foo"), MethodHandler{Get: okHandler}, http.StatusMethodNotAllowed, "GET", notAllowed},
 
 		// Multiple handlers
-		{newRequest("GET", "/foo"), MethodHandler{"GET": okHandler, "POST": okHandler}, http.StatusOK, "", ok},
-		{newRequest("POST", "/foo"), MethodHandler{"GET": okHandler, "POST": okHandler}, http.StatusOK, "", ok},
-		{newRequest("DELETE", "/foo"), MethodHandler{"GET": okHandler, "POST": okHandler}, http.StatusMethodNotAllowed, "GET, POST", notAllowed},
-		{newRequest("OPTIONS", "/foo"), MethodHandler{"GET": okHandler, "POST": okHandler}, http.StatusOK, "GET, POST", ""},
+		{newRequest("GET", "/foo"), MethodHandler{Get: okHandler, Post: okHandler}, http.StatusOK, "", ok},
+		{newRequest("POST", "/foo"), MethodHandler{Get: okHandler, Post: okHandler}, http.StatusOK, "", ok},
+		{newRequest("DELETE", "/foo"), MethodHandler{Get: okHandler, Post: okHandler}, http.StatusMethodNotAllowed, "GET, POST", notAllowed},
+		{newRequest("OPTIONS", "/foo"), MethodHandler{Get: okHandler, Post: okHandler}, http.StatusOK, "GET, POST", ""},
 
 		// Override OPTIONS
-		{newRequest("OPTIONS", "/foo"), MethodHandler{"OPTIONS": okHandler}, http.StatusOK, "", ok},
+		{newRequest("OPTIONS", "/foo"), MethodHandler{Options: okHandler}, http.StatusOK, "", ok},
 	}
 
 	for i, test := range tests {
