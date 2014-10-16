@@ -33,9 +33,9 @@ func TestMatchHeaders(t *testing.T) {
 
 func TestCORS(t *testing.T) {
 	basicHandler := CORSHandler{Handler: handlerFunc}
-	maxAgeHandler := CORSHandler{Handler: handlerFunc, MaxAge: 3600}
+	maxAgeHandler := CORSHandler{Handler: handlerFunc, MaxAge: func(r *http.Request) int64 { return 3600 }}
 	headersHandler := CORSHandler{Handler: handlerFunc, AllowHeaders: MatchHeaders("Origin", "Allow", "X-Requested-With")}
-	credentialsHandler := CORSHandler{Handler: handlerFunc, SupportsCredentials: true}
+	credentialsHandler := CORSHandler{Handler: handlerFunc, SupportsCredentials: func(r *http.Request) bool { return true }}
 	originsHandler := CORSHandler{Handler: handlerFunc, AllowOrigin: func(o string) bool {
 		return o == "http://foo" || o == "http://bar"
 	}}
