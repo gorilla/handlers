@@ -15,6 +15,7 @@ import (
 type compressResponseWriter struct {
 	io.Writer
 	http.ResponseWriter
+	http.Hijacker
 }
 
 func (w *compressResponseWriter) Header() http.Header {
@@ -45,6 +46,7 @@ func CompressHandler(h http.Handler) http.Handler {
 				w = &compressResponseWriter{
 					Writer:         gw,
 					ResponseWriter: w,
+					Hijacker:       w.(http.Hijacker),
 				}
 				break L
 			case "deflate":
@@ -57,6 +59,7 @@ func CompressHandler(h http.Handler) http.Handler {
 				w = &compressResponseWriter{
 					Writer:         fw,
 					ResponseWriter: w,
+					Hijacker:       w.(http.Hijacker),
 				}
 				break L
 			}
