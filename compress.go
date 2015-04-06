@@ -15,6 +15,7 @@ import (
 type compressResponseWriter struct {
 	io.Writer
 	http.ResponseWriter
+	http.Hijacker
 }
 
 func (w *compressResponseWriter) Header() http.Header {
@@ -42,10 +43,17 @@ func CompressHandler(h http.Handler) http.Handler {
 				gw := gzip.NewWriter(w)
 				defer gw.Close()
 
+				h, hok := w.(http.Hijacker)
+				if !hok { /* w is not Hijacker... oh well... */
+					h = nil
+				}
+
 				w = &compressResponseWriter{
 					Writer:         gw,
 					ResponseWriter: w,
+					Hijacker:       h,
 				}
+
 				break L
 			case "deflate":
 				w.Header().Set("Content-Encoding", "deflate")
@@ -54,10 +62,17 @@ func CompressHandler(h http.Handler) http.Handler {
 				fw, _ := flate.NewWriter(w, flate.DefaultCompression)
 				defer fw.Close()
 
+				h, hok := w.(http.Hijacker)
+				if !hok { /* w is not Hijacker... oh well... */
+					h = nil
+				}
+
 				w = &compressResponseWriter{
 					Writer:         fw,
 					ResponseWriter: w,
+					Hijacker:       h,
 				}
+
 				break L
 			}
 		}
