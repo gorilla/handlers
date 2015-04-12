@@ -29,7 +29,7 @@ import (
 // available methods.
 //
 // If the request's method doesn't match any of its keys the handler responds with
-// a status of 406, Method not allowed and sets the Allow header to a comma-separated list
+// a status of 405, Method not allowed and sets the Allow header to a comma-separated list
 // of available methods.
 type MethodHandler map[string]http.Handler
 
