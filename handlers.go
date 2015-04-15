@@ -110,6 +110,7 @@ func (h forwardedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 }
 
 func (h queueLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	t := time.Now()
 	var logger loggingResponseWriter
 	if _, ok := w.(http.Hijacker); ok {
 		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
@@ -117,7 +118,7 @@ func (h queueLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		logger = &responseLogger{w: w}
 	}
 	h.handler.ServeHTTP(logger, req)
-	h.logger.Infof("req: %v status: %v, size: %v", req, logger.Status(), logger.Size())
+	h.logger.Info(buildCommonLogLine(req, t, logger.Status(), logger.Size()))
 }
 
 type loggingResponseWriter interface {
