@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/monsooncommerce/log"
 )
 
 // MethodHandler is an http.Handler that dispatches to a handler whose key in the MethodHandler's
@@ -66,6 +68,11 @@ type forwardedLoggingHandler struct {
 	handler http.Handler
 }
 
+type queueLoggingHandler struct {
+	logger  *log.Log
+	handler http.Handler
+}
+
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	var logger loggingResponseWriter
@@ -100,6 +107,18 @@ func (h forwardedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	}
 	h.handler.ServeHTTP(logger, req)
 	writeForwardedLog(h.writer, req, t, logger.Status(), logger.Size())
+}
+
+func (h queueLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	t := time.Now()
+	var logger loggingResponseWriter
+	if _, ok := w.(http.Hijacker); ok {
+		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
+	} else {
+		logger = &responseLogger{w: w}
+	}
+	h.handler.ServeHTTP(logger, req)
+	h.logger.Info(string(buildCommonLogLine(req, t, logger.Status(), logger.Size())))
 }
 
 type loggingResponseWriter interface {
@@ -314,4 +333,8 @@ func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 
 func ForwardedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return forwardedLoggingHandler{out, h}
+}
+
+func QueueLoggingHandler(log *log.Log, h http.Handler) http.Handler {
+	return queueLoggingHandler{log, h}
 }
