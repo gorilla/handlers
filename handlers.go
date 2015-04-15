@@ -118,7 +118,7 @@ func (h queueLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		logger = &responseLogger{w: w}
 	}
 	h.handler.ServeHTTP(logger, req)
-	h.logger.Info(buildCommonLogLine(req, t, logger.Status(), logger.Size()))
+	h.logger.Info(string(buildCommonLogLine(req, t, logger.Status(), logger.Size()))
 }
 
 type loggingResponseWriter interface {
