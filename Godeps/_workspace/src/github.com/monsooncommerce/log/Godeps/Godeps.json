@@ -1,0 +1,20 @@
+{
+	"ImportPath": "github.com/monsooncommerce/log",
+	"GoVersion": "go1.4.2",
+	"Deps": [
+		{
+			"ImportPath": "github.com/franela/goblin",
+			"Comment": "0.0.1-48-g23dfc38",
+			"Rev": "23dfc38385c69b12cb04a1b8df00314a4e662ed9"
+		},
+		{
+			"ImportPath": "github.com/monsooncommerce/mockwriter",
+			"Rev": "74267f25403b02a111240ce2ca61215b20466fc5"
+		},
+		{
+			"ImportPath": "github.com/onsi/gomega",
+			"Comment": "v1.0-23-g2cd6d99",
+			"Rev": "2cd6d99ccf3ac7ae8398d8296429161bf7061ae2"
+		}
+	]
+}

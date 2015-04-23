@@ -1,0 +1,10 @@
+{
+	"ImportPath": "github.com/monsooncommerce/handlers",
+	"GoVersion": "go1.4.2",
+	"Deps": [
+		{
+			"ImportPath": "github.com/monsooncommerce/log",
+			"Rev": "b6f0bd2ab65b04388787d91415467f32999e310f"
+		}
+	]
+}
