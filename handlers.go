@@ -9,7 +9,10 @@ package handlers
 
 import (
 	"bufio"
+	"bytes"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"sort"
@@ -20,6 +23,27 @@ import (
 
 	"github.com/monsooncommerce/log"
 )
+
+func LogWrapper(handlerToWrap http.HandlerFunc, logger *log.Log) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		formatStr := "\n%v %v %v\nHost: %v\nUser-Agent: %v\nContent-Length: %v\n%v\n%v"
+		var headerStr string
+		for headerName, headerValueStringSlice := range r.Header {
+			for _, headerValue := range headerValueStringSlice {
+				headerStr += fmt.Sprintf("%v: %v", headerName, headerValue)
+			}
+		}
+		bodyBytes, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			logger.Error("could not read request body")
+		} else {
+			logger.Debug(fmt.Sprintf(formatStr, r.Method, r.URL.Path, r.Proto, r.Host, r.UserAgent(), r.ContentLength, headerStr, string(bodyBytes)))
+		}
+
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+		handlerToWrap(w, r)
+	}
+}
 
 // MethodHandler is an http.Handler that dispatches to a handler whose key in the MethodHandler's
 // map matches the name of the HTTP request's method, eg: GET
