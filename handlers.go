@@ -28,7 +28,7 @@ var isTestCase = false
 
 func LogWrapper(handlerToWrap http.HandlerFunc, logger *log.Log) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		//formatStr := "\n%v %v %v\nHost: %v\nUser-Agent: %v\nContent-Length: %v\n%v\n%v"
+		formatStr := "\n%v %v %v\nHost: %v\nUser-Agent: %v\nContent-Length: %v\n%v\n%v"
 		var headerStr string
 		for headerName, headerValueStringSlice := range r.Header {
 			for _, headerValue := range headerValueStringSlice {
