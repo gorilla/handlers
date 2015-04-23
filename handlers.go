@@ -24,8 +24,6 @@ import (
 	"github.com/monsooncommerce/log"
 )
 
-var isTestCase = false
-
 func LogWrapper(handlerToWrap http.HandlerFunc, logger *log.Log) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		formatStr := "\n%v %v %v\nHost: %v\nUser-Agent: %v\nContent-Length: %v\n%v\n%v"
@@ -38,7 +36,7 @@ func LogWrapper(handlerToWrap http.HandlerFunc, logger *log.Log) http.HandlerFun
 		bodyBytes, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			logger.Error("could not read request body")
-		} else if !isTestCase {
+		} else {
 			logger.Debug(fmt.Sprintf(formatStr, r.Method, r.URL.Path, r.Proto, r.Host, r.UserAgent(), r.ContentLength, headerStr, string(bodyBytes)))
 		}
 
