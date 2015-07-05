@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-/*
-Package handlers is a collection of handlers for use with Go's net/http package.
-*/
 package handlers
 
 import (
