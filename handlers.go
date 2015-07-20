@@ -6,7 +6,6 @@ package handlers
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -63,7 +62,7 @@ type combinedLoggingHandler struct {
 
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
-	logger := &responseLogger{w: w}
+	logger := makeLogger(w)
 	url := *req.URL
 	h.handler.ServeHTTP(logger, req)
 	writeLog(h.writer, req, url, t, logger.Status(), logger.Size())
@@ -71,10 +70,26 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
-	logger := &responseLogger{w: w}
+	logger := makeLogger(w)
 	url := *req.URL
 	h.handler.ServeHTTP(logger, req)
 	writeCombinedLog(h.writer, req, url, t, logger.Status(), logger.Size())
+}
+
+func makeLogger(w http.ResponseWriter) loggingResponseWriter {
+	var logger loggingResponseWriter = &responseLogger{w: w}
+	if _, ok := w.(http.Hijacker); ok {
+		logger = &hijackLogger{responseLogger{w: w}}
+	}
+	h, ok1 := logger.(http.Hijacker)
+	c, ok2 := w.(http.CloseNotifier)
+	if ok1 && ok2 {
+		return hijackCloseNotifier{logger, h, c}
+	}
+	if ok2 {
+		return &closeNotifyWriter{logger, c}
+	}
+	return logger
 }
 
 type loggingResponseWriter interface {
@@ -118,19 +133,6 @@ func (l *responseLogger) Size() int {
 	return l.size
 }
 
-func (l *responseLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	h, ok := l.w.(http.Hijacker)
-	if !ok {
-		return nil, nil, errors.New("Hijacker is not supported")
-	}
-	conn, rw, err := h.Hijack()
-	if err == nil && l.status == 0 {
-		// The status will be StatusSwitchingProtocols if there was no error and WriteHeader has not been called yet
-		l.status = http.StatusSwitchingProtocols
-	}
-	return conn, rw, err
-}
-
 func (l *responseLogger) Flush() {
 	f, ok := l.w.(http.Flusher)
 	if ok {
@@ -138,12 +140,29 @@ func (l *responseLogger) Flush() {
 	}
 }
 
-func (l *responseLogger) CloseNotify() <-chan bool {
-	c, ok := l.w.(http.CloseNotifier)
-	if !ok {
-		panic("CloseNotifier is not supported")
+type hijackLogger struct {
+	responseLogger
+}
+
+func (l *hijackLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h := l.responseLogger.w.(http.Hijacker)
+	conn, rw, err := h.Hijack()
+	if err == nil && l.responseLogger.status == 0 {
+		// The status will be StatusSwitchingProtocols if there was no error and WriteHeader has not been called yet
+		l.responseLogger.status = http.StatusSwitchingProtocols
 	}
-	return c.CloseNotify()
+	return conn, rw, err
+}
+
+type closeNotifyWriter struct {
+	loggingResponseWriter
+	http.CloseNotifier
+}
+
+type hijackCloseNotifier struct {
+	loggingResponseWriter
+	http.Hijacker
+	http.CloseNotifier
 }
 
 const lowerhex = "0123456789abcdef"
