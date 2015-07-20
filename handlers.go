@@ -75,19 +75,30 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
-	var logger loggingResponseWriter
-	if _, ok := w.(http.Hijacker); ok {
-		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
-	} else {
-		logger = &responseLogger{w: w}
-	}
+	logger := makeLogger(w)
 	url := *req.URL
 	h.handler.ServeHTTP(logger, req)
 	writeCombinedLog(h.writer, req, url, t, logger.Status(), logger.Size())
 }
 
+func makeLogger(w http.ResponseWriter) loggingResponseWriter {
+	var responseLogger = &responseLogger{w: w}
+	var logger loggingResponseWriter = responseLogger
+	if _, ok := w.(http.Hijacker); ok {
+		logger = &hijackLogger{*responseLogger}
+	}
+	if _, ok := w.(http.Flusher); ok {
+		logger = &flushLogger{logger}
+	}
+	if _, ok := w.(http.CloseNotifier); ok {
+		logger = &closeNotifyLogger{logger}
+	}
+	return logger
+}
+
 type loggingResponseWriter interface {
 	http.ResponseWriter
+	Source() http.ResponseWriter
 	Status() int
 	Size() int
 }
@@ -119,6 +130,10 @@ func (l *responseLogger) WriteHeader(s int) {
 	l.status = s
 }
 
+func (l *responseLogger) Source() http.ResponseWriter {
+	return l.w
+}
+
 func (l *responseLogger) Status() int {
 	return l.status
 }
@@ -139,6 +154,24 @@ func (l *hijackLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 		l.responseLogger.status = http.StatusSwitchingProtocols
 	}
 	return conn, rw, err
+}
+
+type flushLogger struct {
+	loggingResponseWriter
+}
+
+func (l *flushLogger) Flush() {
+	f := l.Source().(http.Flusher)
+	f.Flush()
+}
+
+type closeNotifyLogger struct {
+	loggingResponseWriter
+}
+
+func (l *closeNotifyLogger) CloseNotify() <-chan bool {
+	f := l.Source().(http.CloseNotifier)
+	return f.CloseNotify()
 }
 
 const lowerhex = "0123456789abcdef"
