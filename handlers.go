@@ -94,6 +94,7 @@ func makeLogger(w http.ResponseWriter) loggingResponseWriter {
 
 type loggingResponseWriter interface {
 	http.ResponseWriter
+	http.Flusher
 	Status() int
 	Size() int
 }
