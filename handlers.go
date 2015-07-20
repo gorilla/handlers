@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -62,12 +63,7 @@ type combinedLoggingHandler struct {
 
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
-	var logger loggingResponseWriter
-	if _, ok := w.(http.Hijacker); ok {
-		logger = &hijackLogger{responseLogger: responseLogger{w: w}}
-	} else {
-		logger = &responseLogger{w: w}
-	}
+	logger := &responseLogger{w: w}
 	url := *req.URL
 	h.handler.ServeHTTP(logger, req)
 	writeLog(h.writer, req, url, t, logger.Status(), logger.Size())
@@ -75,30 +71,14 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
-	logger := makeLogger(w)
+	logger := &responseLogger{w: w}
 	url := *req.URL
 	h.handler.ServeHTTP(logger, req)
 	writeCombinedLog(h.writer, req, url, t, logger.Status(), logger.Size())
 }
 
-func makeLogger(w http.ResponseWriter) loggingResponseWriter {
-	var responseLogger = &responseLogger{w: w}
-	var logger loggingResponseWriter = responseLogger
-	if _, ok := w.(http.Hijacker); ok {
-		logger = &hijackLogger{*responseLogger}
-	}
-	if _, ok := w.(http.Flusher); ok {
-		logger = &flushLogger{logger}
-	}
-	if _, ok := w.(http.CloseNotifier); ok {
-		logger = &closeNotifyLogger{logger}
-	}
-	return logger
-}
-
 type loggingResponseWriter interface {
 	http.ResponseWriter
-	Source() http.ResponseWriter
 	Status() int
 	Size() int
 }
@@ -130,10 +110,6 @@ func (l *responseLogger) WriteHeader(s int) {
 	l.status = s
 }
 
-func (l *responseLogger) Source() http.ResponseWriter {
-	return l.w
-}
-
 func (l *responseLogger) Status() int {
 	return l.status
 }
@@ -142,36 +118,32 @@ func (l *responseLogger) Size() int {
 	return l.size
 }
 
-type hijackLogger struct {
-	responseLogger
-}
-
-func (l *hijackLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	h := l.responseLogger.w.(http.Hijacker)
+func (l *responseLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h, ok := l.w.(http.Hijacker)
+	if !ok {
+		return nil, nil, errors.New("Hijacker is not supported")
+	}
 	conn, rw, err := h.Hijack()
-	if err == nil && l.responseLogger.status == 0 {
+	if err == nil && l.status == 0 {
 		// The status will be StatusSwitchingProtocols if there was no error and WriteHeader has not been called yet
-		l.responseLogger.status = http.StatusSwitchingProtocols
+		l.status = http.StatusSwitchingProtocols
 	}
 	return conn, rw, err
 }
 
-type flushLogger struct {
-	loggingResponseWriter
+func (l *responseLogger) Flush() {
+	f, ok := l.w.(http.Flusher)
+	if ok {
+		f.Flush()
+	}
 }
 
-func (l *flushLogger) Flush() {
-	f := l.Source().(http.Flusher)
-	f.Flush()
-}
-
-type closeNotifyLogger struct {
-	loggingResponseWriter
-}
-
-func (l *closeNotifyLogger) CloseNotify() <-chan bool {
-	f := l.Source().(http.CloseNotifier)
-	return f.CloseNotify()
+func (l *responseLogger) CloseNotify() <-chan bool {
+	c, ok := l.w.(http.CloseNotifier)
+	if !ok {
+		panic("CloseNotifier is not supported")
+	}
+	return c.CloseNotify()
 }
 
 const lowerhex = "0123456789abcdef"
