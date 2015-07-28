@@ -81,6 +81,7 @@ func CompressHandler(h http.Handler) http.Handler {
 				w.Header().Set("Content-Encoding", "gzip")
 				w.Header().Add("Vary", "Accept-Encoding")
 			}
+
 			gw := gzip.NewWriter(w)
 			defer gw.Close()
 
@@ -102,6 +103,7 @@ func CompressHandler(h http.Handler) http.Handler {
 				w.Header().Set("Content-Encoding", "deflate")
 				w.Header().Add("Vary", "Accept-Encoding")
 			}
+
 			fw, _ := flate.NewWriter(w, flate.DefaultCompression)
 			defer fw.Close()
 
