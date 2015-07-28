@@ -36,6 +36,7 @@ func (w *compressResponseWriter) Write(b []byte) (int, error) {
 func CompressHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		acceptedEnc := ""
+		transferEnc := false
 		if r.ProtoMajor > 1 || (r.ProtoMajor == 1 && r.ProtoMinor >= 1) {
 		TE:
 			for _, c := range strings.Split(r.Header.Get("Connection"), ",") {
@@ -46,6 +47,7 @@ func CompressHandler(h http.Handler) http.Handler {
 						switch te {
 						case "gzip", "deflate":
 							acceptedEnc = te
+							transferEnc = true
 							break TE
 						}
 					}
@@ -67,8 +69,12 @@ func CompressHandler(h http.Handler) http.Handler {
 
 		switch acceptedEnc {
 		case "gzip":
-			w.Header().Set("Content-Encoding", "gzip")
-			w.Header().Add("Vary", "Accept-Encoding")
+			if transferEnc {
+				w.Header().Set("Transfer-Encoding", "gzip")
+			} else {
+				w.Header().Set("Content-Encoding", "gzip")
+				w.Header().Add("Vary", "Accept-Encoding")
+			}
 
 			gw := gzip.NewWriter(w)
 			defer gw.Close()
@@ -85,8 +91,12 @@ func CompressHandler(h http.Handler) http.Handler {
 			}
 
 		case "deflate":
-			w.Header().Set("Content-Encoding", "deflate")
-			w.Header().Add("Vary", "Accept-Encoding")
+			if transferEnc {
+				w.Header().Set("Transfer-Encoding", "deflate")
+			} else {
+				w.Header().Set("Content-Encoding", "deflate")
+				w.Header().Add("Vary", "Accept-Encoding")
+			}
 
 			fw, _ := flate.NewWriter(w, flate.DefaultCompression)
 			defer fw.Close()

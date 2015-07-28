@@ -84,8 +84,8 @@ func TestCompressHandlerGzipDeflate(t *testing.T) {
 func TestCompressHandlerGzipHTTP11(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressed1dot1Request(w, "gzip")
-	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
-		t.Fatalf("wrong content encoding, got %s want %s", w.HeaderMap.Get("Content-Encoding"), "gzip")
+	if w.HeaderMap.Get("Transfer-Encoding") != "gzip" {
+		t.Fatalf("wrong content encoding, got %s want %s", w.HeaderMap.Get("Transfer-Encoding"), "gzip")
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
@@ -98,8 +98,8 @@ func TestCompressHandlerGzipHTTP11(t *testing.T) {
 func TestCompressHandlerGzipDeflateHTTP11(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressed1dot1Request(w, "gzip, deflate")
-	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
-		t.Fatalf("wrong content encoding, got %s want %s", w.HeaderMap.Get("Content-Encoding"), "gzip")
+	if w.HeaderMap.Get("Transfer-Encoding") != "gzip" {
+		t.Fatalf("wrong content encoding, got %s want %s", w.HeaderMap.Get("Transfer-Encoding"), "gzip")
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
@@ -112,8 +112,8 @@ func TestCompressHandlerGzipDeflateHTTP11(t *testing.T) {
 func TestCompressHandlerDeflateHTTP11(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressed1dot1Request(w, "deflate")
-	if w.HeaderMap.Get("Content-Encoding") != "deflate" {
-		t.Fatalf("wrong content encoding, got %s want %s", w.HeaderMap.Get("Content-Encoding"), "deflate")
+	if w.HeaderMap.Get("Transfer-Encoding") != "deflate" {
+		t.Fatalf("wrong content encoding, got %s want %s", w.HeaderMap.Get("Transfer-Encoding"), "deflate")
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
