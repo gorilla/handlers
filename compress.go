@@ -35,7 +35,7 @@ func (w *compressResponseWriter) Write(b []byte) (int, error) {
 // via the 'Accept-Encoding' header.
 func CompressHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		accepted_enc := ""
+		acceptedEnc := ""
 		if r.ProtoMajor > 1 || (r.ProtoMajor == 1 && r.ProtoMinor >= 1) {
 		TE:
 			for _, c := range strings.Split(r.Header.Get("Connection"), ",") {
@@ -45,7 +45,7 @@ func CompressHandler(h http.Handler) http.Handler {
 						te = strings.TrimSpace(te)
 						switch te {
 						case "gzip", "deflate":
-							accepted_enc = te
+							acceptedEnc = te
 							break TE
 						}
 					}
@@ -53,19 +53,19 @@ func CompressHandler(h http.Handler) http.Handler {
 			}
 		}
 
-		if accepted_enc == "" {
+		if acceptedEnc == "" {
 		AE:
 			for _, enc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
 				enc = strings.TrimSpace(enc)
 				switch enc {
 				case "gzip", "deflate":
-					accepted_enc = enc
+					acceptedEnc = enc
 					break AE
 				}
 			}
 		}
 
-		switch accepted_enc {
+		switch acceptedEnc {
 		case "gzip":
 			w.Header().Set("Content-Encoding", "gzip")
 			w.Header().Add("Vary", "Accept-Encoding")

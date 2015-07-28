@@ -81,7 +81,7 @@ func TestCompressHandlerGzipDeflate(t *testing.T) {
 	}
 }
 
-func TestCompressHandlerGzip_http11(t *testing.T) {
+func TestCompressHandlerGzipHTTP11(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressed1dot1Request(w, "gzip")
 	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
@@ -95,7 +95,7 @@ func TestCompressHandlerGzip_http11(t *testing.T) {
 	}
 }
 
-func TestCompressHandlerGzipDeflate_http11(t *testing.T) {
+func TestCompressHandlerGzipDeflateHTTP11(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressed1dot1Request(w, "gzip, deflate")
 	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
@@ -109,7 +109,7 @@ func TestCompressHandlerGzipDeflate_http11(t *testing.T) {
 	}
 }
 
-func TestCompressHandlerDeflate_http11(t *testing.T) {
+func TestCompressHandlerDeflateHTTP11(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressed1dot1Request(w, "deflate")
 	if w.HeaderMap.Get("Content-Encoding") != "deflate" {
