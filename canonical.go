@@ -55,6 +55,7 @@ func (c canonical) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Re-build the destination URL
 		dest := dest.Scheme + "://" + dest.Host + r.URL.Path
 		http.Redirect(w, r, dest, c.code)
+		return
 	}
 
 	c.h.ServeHTTP(w, r)
