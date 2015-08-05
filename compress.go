@@ -18,6 +18,11 @@ type compressResponseWriter struct {
 	http.Hijacker
 }
 
+func (w *compressResponseWriter) WriteHeader(c int) {
+	w.ResponseWriter.Header().Del("Content-Length")
+	w.ResponseWriter.WriteHeader(c)
+}
+
 func (w *compressResponseWriter) Header() http.Header {
 	return w.ResponseWriter.Header()
 }
@@ -27,6 +32,7 @@ func (w *compressResponseWriter) Write(b []byte) (int, error) {
 	if h.Get("Content-Type") == "" {
 		h.Set("Content-Type", http.DetectContentType(b))
 	}
+	h.Del("Content-Length")
 
 	return w.Writer.Write(b)
 }
