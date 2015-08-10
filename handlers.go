@@ -309,6 +309,16 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 // See http://httpd.apache.org/docs/2.2/logs.html#common for a description of this format.
 //
 // LoggingHandler always sets the ident field of the log to -
+//
+// Example:
+//
+//  r := mux.NewRouter()
+//  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+//  	w.Write([]byte("This is a catch-all route"))
+//  })
+//  loggedRouter := handlers.LoggingHandler(os.Stdout, r)
+//  http.ListenAndServe(":1123", loggedRouter)
+//
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h}
 }
