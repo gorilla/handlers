@@ -316,8 +316,8 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 //  	w.Write([]byte("This is a catch-all route"))
 //  })
-//  logAndServe := handlers.LoggingHandler(os.Stdout, r)
-//  http.ListenAndServe(":1123", logAndServe)
+//  loggedRouter := handlers.LoggingHandler(os.Stdout, r)
+//  http.ListenAndServe(":1123", loggedRouter)
 //
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h}
