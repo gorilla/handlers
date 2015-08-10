@@ -41,50 +41,83 @@ func (w *compressResponseWriter) Write(b []byte) (int, error) {
 // via the 'Accept-Encoding' header.
 func CompressHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	L:
-		for _, enc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
-			switch strings.TrimSpace(enc) {
-			case "gzip":
-				w.Header().Set("Content-Encoding", "gzip")
-				w.Header().Add("Vary", "Accept-Encoding")
-
-				gw := gzip.NewWriter(w)
-				defer gw.Close()
-
-				h, hok := w.(http.Hijacker)
-				if !hok { /* w is not Hijacker... oh well... */
-					h = nil
+		acceptedEnc := ""
+		transferEnc := false
+		if r.ProtoMajor > 1 || (r.ProtoMajor == 1 && r.ProtoMinor >= 1) {
+		TE:
+			for _, c := range strings.Split(r.Header.Get("Connection"), ",") {
+				c = strings.TrimSpace(c)
+				if c == "TE" && r.Header.Get("TE") != "" {
+					for _, te := range strings.Split(r.Header.Get("TE"), ",") {
+						te = strings.TrimSpace(te)
+						switch te {
+						case "gzip", "deflate":
+							acceptedEnc = te
+							transferEnc = true
+							break TE
+						}
+					}
 				}
-
-				w = &compressResponseWriter{
-					Writer:         gw,
-					ResponseWriter: w,
-					Hijacker:       h,
-				}
-
-				break L
-			case "deflate":
-				w.Header().Set("Content-Encoding", "deflate")
-				w.Header().Add("Vary", "Accept-Encoding")
-
-				fw, _ := flate.NewWriter(w, flate.DefaultCompression)
-				defer fw.Close()
-
-				h, hok := w.(http.Hijacker)
-				if !hok { /* w is not Hijacker... oh well... */
-					h = nil
-				}
-
-				w = &compressResponseWriter{
-					Writer:         fw,
-					ResponseWriter: w,
-					Hijacker:       h,
-				}
-
-				break L
 			}
 		}
 
+		if acceptedEnc == "" {
+		AE:
+			for _, enc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+				enc = strings.TrimSpace(enc)
+				switch enc {
+				case "gzip", "deflate":
+					acceptedEnc = enc
+					break AE
+				}
+			}
+		}
+
+		switch acceptedEnc {
+		case "gzip":
+			if transferEnc {
+				w.Header().Set("Transfer-Encoding", "gzip")
+			} else {
+				w.Header().Set("Content-Encoding", "gzip")
+				w.Header().Add("Vary", "Accept-Encoding")
+			}
+
+			gw := gzip.NewWriter(w)
+			defer gw.Close()
+
+			h, hok := w.(http.Hijacker)
+			if !hok { /* w is not Hijacker... oh well... */
+				h = nil
+			}
+
+			w = &compressResponseWriter{
+				Writer:         gw,
+				ResponseWriter: w,
+				Hijacker:       h,
+			}
+
+		case "deflate":
+			if transferEnc {
+				w.Header().Set("Transfer-Encoding", "deflate")
+			} else {
+				w.Header().Set("Content-Encoding", "deflate")
+				w.Header().Add("Vary", "Accept-Encoding")
+			}
+
+			fw, _ := flate.NewWriter(w, flate.DefaultCompression)
+			defer fw.Close()
+
+			h, hok := w.(http.Hijacker)
+			if !hok { /* w is not Hijacker... oh well... */
+				h = nil
+			}
+
+			w = &compressResponseWriter{
+				Writer:         fw,
+				ResponseWriter: w,
+				Hijacker:       h,
+			}
+		}
 		h.ServeHTTP(w, r)
 	})
 }
