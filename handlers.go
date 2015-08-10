@@ -315,6 +315,7 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //  r := mux.NewRouter()
 //  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 //  	w.Write([]byte("This is a catch-all route"))
+//  })
 //  logAndServe := handlers.LoggingHandler(os.Stdout, r)
 //  http.ListenAndServe(":1123", logAndServe)
 //
