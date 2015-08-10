@@ -18,7 +18,6 @@ type canonical struct {
 //
 // Note: If the provided domain is considered invalid by url.Parse or otherwise
 // returns an empty scheme or host, clients are not re-directed.
-// not re-directed.
 //
 // Example:
 //

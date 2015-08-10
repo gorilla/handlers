@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"bufio"
+	"bytes"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -69,5 +73,38 @@ func TestEmptyHost(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("bad status: got %v want %v", rr.Code, http.StatusOK)
+	}
+}
+
+func TestHeaderWrites(t *testing.T) {
+	gorilla := "http://www.gorillatoolkit.org"
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	})
+
+	// Catch the log output to ensure we don't write multiple headers.
+	var b bytes.Buffer
+	buf := bufio.NewWriter(&b)
+	tl := log.New(buf, "test: ", log.Lshortfile)
+
+	srv := httptest.NewServer(
+		CanonicalHost(gorilla, http.StatusFound)(testHandler))
+	defer srv.Close()
+	srv.Config.ErrorLog = tl
+
+	_, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = buf.Flush()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We rely on the error not changing: net/http does not export it.
+	if strings.Contains(b.String(), "multiple response.WriteHeader calls") {
+		t.Fatalf("re-direct did not return early: multiple header writes")
 	}
 }
