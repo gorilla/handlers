@@ -3,15 +3,12 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"runtime"
+	"runtime/debug"
 )
 
-const defaultRecoveryStackSize = 8192
-
 type recoveryHandler struct {
-	logger    *log.Logger
-	handler   http.Handler
-	stackSize int
+	handler    http.Handler
+	printTrace bool
 }
 
 // RecoveryHandler is HTTP middleware that recovers from a panic,
@@ -20,27 +17,26 @@ type recoveryHandler struct {
 //
 // Example:
 //
-//  logger := log.New(os.Stdout, "prefix: ", log.LstdFlags)
-//
 //  r := mux.NewRouter()
 //  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 //  	panic("Unexpected error!")
 //  })
 //
-//  recoverRouter := handlers.RecoveryHandler(logger, r)
+//  recoverRouter := handlers.RecoveryHandler(r)
 //  http.ListenAndServe(":1123", recoverRouter)
-func RecoveryHandler(logger *log.Logger, h http.Handler) http.Handler {
-	return recoveryHandler{logger, h, defaultRecoveryStackSize}
+func RecoveryHandler(h http.Handler) http.Handler {
+	return recoveryHandler{h, true}
 }
 
 func (h recoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			stack := make([]byte, h.stackSize)
-			stack = stack[:runtime.Stack(stack, true)]
+			log.Println(err)
 
-			h.logger.Printf("%s\n%s\n", err, stack)
+			if h.printTrace {
+				debug.PrintStack()
+			}
 		}
 	}()
 
