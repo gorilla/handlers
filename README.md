@@ -20,6 +20,7 @@ with Go's `net/http` package (or any framework supporting `http.Handler`), inclu
   headers when running a Go server behind a HTTP reverse proxy.
 * `CanonicalHost` for re-directing to the preferred host when handling multiple 
   domains (i.e. multiple CNAME aliases).
+* `RecoveryHandler` for recovering from unexpected panics.
 
 Other handlers are documented [on the Gorilla
 website](http://www.gorillatoolkit.org/pkg/handlers).
