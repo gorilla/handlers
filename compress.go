@@ -40,6 +40,15 @@ func (w *compressResponseWriter) Write(b []byte) (int, error) {
 // CompressHandler gzip compresses HTTP responses for clients that support it
 // via the 'Accept-Encoding' header.
 func CompressHandler(h http.Handler) http.Handler {
+	return CompressHandlerLevel(h, gzip.DefaultCompression)
+}
+
+// CompressHandlerLevel gzip compresses HTTP responses with specified compression level
+// for clients that support it via the 'Accept-Encoding' header.
+//
+// The compression level must be gzip.DefaultCompression, gzip.NoCompression,
+// or any integer value between gzip.BestSpeed and gzip.BestCompression inclusive.
+func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	L:
 		for _, enc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
@@ -48,7 +57,7 @@ func CompressHandler(h http.Handler) http.Handler {
 				w.Header().Set("Content-Encoding", "gzip")
 				w.Header().Add("Vary", "Accept-Encoding")
 
-				gw := gzip.NewWriter(w)
+				gw, _ := gzip.NewWriterLevel(w, level)
 				defer gw.Close()
 
 				h, hok := w.(http.Hijacker)
@@ -67,7 +76,7 @@ func CompressHandler(h http.Handler) http.Handler {
 				w.Header().Set("Content-Encoding", "deflate")
 				w.Header().Add("Vary", "Accept-Encoding")
 
-				fw, _ := flate.NewWriter(w, flate.DefaultCompression)
+				fw, _ := flate.NewWriter(w, level)
 				defer fw.Close()
 
 				h, hok := w.(http.Hijacker)
