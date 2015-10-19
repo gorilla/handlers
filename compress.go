@@ -46,9 +46,13 @@ func CompressHandler(h http.Handler) http.Handler {
 // CompressHandlerLevel gzip compresses HTTP responses with specified compression level
 // for clients that support it via the 'Accept-Encoding' header.
 //
-// The compression level must be gzip.DefaultCompression, gzip.NoCompression,
+// The compression level should be gzip.DefaultCompression, gzip.NoCompression,
 // or any integer value between gzip.BestSpeed and gzip.BestCompression inclusive.
 func CompressHandlerLevel(h http.Handler, level int) http.Handler {
+	if level != gzip.DefaultCompression && level != gzip.NoCompression && (level < gzip.BestSpeed || level > gzip.BestCompression) {
+		level = gzip.DefaultCompression
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	L:
 		for _, enc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
