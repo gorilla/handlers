@@ -12,9 +12,12 @@ import (
 	"testing"
 )
 
+var contentType = "text/plain; charset=utf-8"
+
 func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 	CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", strconv.Itoa(9*1024))
+		w.Header().Set("Content-Type", contentType)
 		for i := 0; i < 1024; i++ {
 			io.WriteString(w, "Gorilla!\n")
 		}
@@ -33,8 +36,8 @@ func TestCompressHandlerNoCompression(t *testing.T) {
 	if enc := w.HeaderMap.Get("Content-Encoding"); enc != "" {
 		t.Errorf("wrong content encoding, got %q want %q", enc, "")
 	}
-	if ct := w.HeaderMap.Get("Content-Type"); ct != "" {
-		t.Errorf("wrong content type, got %q want %q", ct, "")
+	if ct := w.HeaderMap.Get("Content-Type"); ct != contentType {
+		t.Errorf("wrong content type, got %q want %q", ct, contentType)
 	}
 	if w.Body.Len() != 1024*9 {
 		t.Errorf("wrong len, got %d want %d", w.Body.Len(), 1024*9)
