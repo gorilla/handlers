@@ -3,12 +3,21 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"os"
 	"runtime/debug"
 )
 
 type recoveryHandler struct {
-	handler    http.Handler
-	printTrace bool
+	handler http.Handler
+	options *RecoveryOptions
+}
+
+// RecoveryOptions provides configuration options for the
+// reovery handler; such as setting the logging type and
+// whether or not to print strack traces on panic.
+type RecoveryOptions struct {
+	Logger     *log.Logger
+	PrintTrace bool
 }
 
 // RecoveryHandler is HTTP middleware that recovers from a panic,
@@ -24,21 +33,40 @@ type recoveryHandler struct {
 //
 //  recoverRouter := handlers.RecoveryHandler(r)
 //  http.ListenAndServe(":1123", recoverRouter)
-func RecoveryHandler(h http.Handler) http.Handler {
-	return recoveryHandler{h, true}
+func RecoveryHandler(h http.Handler, options *RecoveryOptions) http.Handler {
+	if options == nil {
+		options = makeDefaultRecoveryOptions()
+	}
+
+	return recoveryHandler{h, options}
+}
+
+func makeDefaultRecoveryOptions() *RecoveryOptions {
+	return &RecoveryOptions{
+		Logger:     log.New(os.Stderr, "", log.LstdFlags),
+		PrintTrace: true,
+	}
 }
 
 func (h recoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			log.Println(err)
-
-			if h.printTrace {
-				debug.PrintStack()
-			}
+			h.log(err)
 		}
 	}()
 
 	h.handler.ServeHTTP(w, req)
+}
+
+func (h recoveryHandler) log(message interface{}) {
+	if h.options.Logger != nil {
+		h.options.Logger.Println(message)
+	} else {
+		log.Println(message)
+	}
+
+	if h.options.PrintTrace {
+		debug.PrintStack()
+	}
 }
