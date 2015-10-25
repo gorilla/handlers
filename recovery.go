@@ -3,7 +3,6 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"os"
 	"runtime/debug"
 )
 
@@ -35,17 +34,10 @@ type RecoveryOptions struct {
 //  http.ListenAndServe(":1123", recoverRouter)
 func RecoveryHandler(h http.Handler, options *RecoveryOptions) http.Handler {
 	if options == nil {
-		options = makeDefaultRecoveryOptions()
+		options = &RecoveryOptions{}
 	}
 
 	return recoveryHandler{h, options}
-}
-
-func makeDefaultRecoveryOptions() *RecoveryOptions {
-	return &RecoveryOptions{
-		Logger:     log.New(os.Stderr, "", log.LstdFlags),
-		PrintTrace: true,
-	}
 }
 
 func (h recoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
