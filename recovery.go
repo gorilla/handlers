@@ -7,16 +7,22 @@ import (
 )
 
 type recoveryHandler struct {
-	handler http.Handler
-	options *RecoveryOptions
+	handler    http.Handler
+	logger     *log.Logger
+	printStack bool
 }
 
-// RecoveryOptions provides configuration options for the
-// reovery handler; such as setting the logging type and
+// Option provides a functional approach to define
+// configuration for a handler; such as setting the logging
 // whether or not to print strack traces on panic.
-type RecoveryOptions struct {
-	Logger     *log.Logger
-	PrintTrace bool
+type Option func(http.Handler)
+
+func parseOptions(h http.Handler, opts ...Option) http.Handler {
+	for _, option := range opts {
+		option(h)
+	}
+
+	return h
 }
 
 // RecoveryHandler is HTTP middleware that recovers from a panic,
@@ -32,12 +38,25 @@ type RecoveryOptions struct {
 //
 //  recoverRouter := handlers.RecoveryHandler(r)
 //  http.ListenAndServe(":1123", recoverRouter)
-func RecoveryHandler(h http.Handler, options *RecoveryOptions) http.Handler {
-	if options == nil {
-		options = &RecoveryOptions{}
+func RecoveryHandler(opts ...Option) func(h http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		r := &recoveryHandler{handler: h}
+		return parseOptions(r, opts...)
 	}
+}
 
-	return recoveryHandler{h, options}
+func RecoveryLogger(logger *log.Logger) Option {
+	return func(h http.Handler) {
+		r := h.(*recoveryHandler)
+		r.logger = logger
+	}
+}
+
+func PrintRecoveryStack(print bool) Option {
+	return func(h http.Handler) {
+		r := h.(*recoveryHandler)
+		r.printStack = print
+	}
 }
 
 func (h recoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -52,13 +71,13 @@ func (h recoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h recoveryHandler) log(message interface{}) {
-	if h.options.Logger != nil {
-		h.options.Logger.Println(message)
+	if h.logger != nil {
+		h.logger.Println(message)
 	} else {
 		log.Println(message)
 	}
 
-	if h.options.PrintTrace {
+	if h.printStack {
 		debug.PrintStack()
 	}
 }
