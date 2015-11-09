@@ -251,6 +251,9 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 	}
 
 	uri := req.RequestURI
+	if uri == "" {
+		uri = url.RequestURI()
+	}
 	if req.ProtoMajor == 2 && req.Method == "CONNECT" {
 		uri = req.Host
 	}
