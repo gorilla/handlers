@@ -251,6 +251,10 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 	}
 
 	uri := req.RequestURI
+
+	// Requests using the CONNECT method over HTTP/2.0 must use
+	// the authority field (aka r.Host) to identify the target.
+	// Refer: https://httpwg.github.io/specs/rfc7540.html#CONNECT
 	if req.ProtoMajor == 2 && req.Method == "CONNECT" {
 		uri = req.Host
 	}
