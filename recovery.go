@@ -12,12 +12,12 @@ type recoveryHandler struct {
 	printStack bool
 }
 
-// Option provides a functional approach to define
+// RecoveryOption provides a functional approach to define
 // configuration for a handler; such as setting the logging
 // whether or not to print strack traces on panic.
-type Option func(http.Handler)
+type RecoveryOption func(http.Handler)
 
-func parseOptions(h http.Handler, opts ...Option) http.Handler {
+func parseRecoveryOptions(h http.Handler, opts ...RecoveryOption) http.Handler {
 	for _, option := range opts {
 		option(h)
 	}
@@ -36,23 +36,26 @@ func parseOptions(h http.Handler, opts ...Option) http.Handler {
 //  	panic("Unexpected error!")
 //  })
 //
-//  recoverRouter := handlers.RecoveryHandler(r)
-//  http.ListenAndServe(":1123", recoverRouter)
-func RecoveryHandler(opts ...Option) func(h http.Handler) http.Handler {
+//  http.ListenAndServe(":1123", handlers.RecoveryHandler(r))
+func RecoveryHandler(opts ...RecoveryOption) func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		r := &recoveryHandler{handler: h}
-		return parseOptions(r, opts...)
+		return parseRecoveryOptions(r, opts...)
 	}
 }
 
-func RecoveryLogger(logger *log.Logger) Option {
+// RecoveryLogger is a functional option to override
+// the default logger
+func RecoveryLogger(logger *log.Logger) RecoveryOption {
 	return func(h http.Handler) {
 		r := h.(*recoveryHandler)
 		r.logger = logger
 	}
 }
 
-func PrintRecoveryStack(print bool) Option {
+// PrintRecoveryStack is a functional option to enable
+// or disable printing stack traces on panic.
+func PrintRecoveryStack(print bool) RecoveryOption {
 	return func(h http.Handler) {
 		r := h.(*recoveryHandler)
 		r.printStack = print
