@@ -250,7 +250,17 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 		host = req.RemoteAddr
 	}
 
-	uri := url.RequestURI()
+	uri := req.RequestURI
+
+	// Requests using the CONNECT method over HTTP/2.0 must use
+	// the authority field (aka r.Host) to identify the target.
+	// Refer: https://httpwg.github.io/specs/rfc7540.html#CONNECT
+	if req.ProtoMajor == 2 && req.Method == "CONNECT" {
+		uri = req.Host
+	}
+	if uri == "" {
+		uri = url.RequestURI()
+	}
 
 	buf := make([]byte, 0, 3*(len(host)+len(username)+len(req.Method)+len(uri)+len(req.Proto)+50)/2)
 	buf = append(buf, host...)
