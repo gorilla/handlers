@@ -12,6 +12,13 @@ import (
 	"strings"
 )
 
+// compressHandler is a http.Handler that performs gzip/flate compression for
+// HTTP responses.
+type compressHandler struct {
+	h     http.Handler
+	level int
+}
+
 type compressResponseWriter struct {
 	io.Writer
 	http.ResponseWriter
@@ -41,7 +48,7 @@ func (w *compressResponseWriter) Write(b []byte) (int, error) {
 // CompressHandler gzip compresses HTTP responses for clients that support it
 // via the 'Accept-Encoding' header.
 func CompressHandler(h http.Handler) http.Handler {
-	return CompressHandlerLevel(h, gzip.DefaultCompression)
+	return &compressHandler{h, gzip.DefaultCompression}
 }
 
 // CompressHandlerLevel gzip compresses HTTP responses with specified compression level
@@ -51,53 +58,57 @@ func CompressHandler(h http.Handler) http.Handler {
 // or any integer value between gzip.BestSpeed and gzip.BestCompression inclusive.
 // gzip.DefaultCompression is used in case of invalid compression level.
 func CompressHandlerLevel(h http.Handler, level int) http.Handler {
-	if level < gzip.DefaultCompression || level > gzip.BestCompression {
+	if level != gzip.DefaultCompression && level != gzip.NoCompression && (level < gzip.BestSpeed || level > gzip.BestCompression) {
 		level = gzip.DefaultCompression
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	L:
-		for _, enc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
-			switch strings.TrimSpace(enc) {
-			case "gzip":
-				w.Header().Set("Content-Encoding", "gzip")
+	return &compressHandler{h, level}
+}
 
-				gw, _ := gzip.NewWriterLevel(w, level)
-				defer gw.Close()
+// ServeHTTP satisfies the http.Handler interface for compressHandler.
+func (ch *compressHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+L:
+	for _, enc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+		switch strings.TrimSpace(enc) {
+		case "gzip":
+			w.Header().Set("Content-Encoding", "gzip")
 
-				h, hok := w.(http.Hijacker)
-				if !hok { /* w is not Hijacker... oh well... */
-					h = nil
-				}
+			gw, _ := gzip.NewWriterLevel(w, ch.level)
+			defer gw.Close()
 
-				w = &compressResponseWriter{
-					Writer:         gw,
-					ResponseWriter: w,
-					Hijacker:       h,
-				}
-
-				break L
-			case "deflate":
-				w.Header().Set("Content-Encoding", "deflate")
-
-				fw, _ := flate.NewWriter(w, level)
-				defer fw.Close()
-
-				h, hok := w.(http.Hijacker)
-				if !hok { /* w is not Hijacker... oh well... */
-					h = nil
-				}
-
-				w = &compressResponseWriter{
-					Writer:         fw,
-					ResponseWriter: w,
-					Hijacker:       h,
-				}
-
-				break L
+			h, hok := w.(http.Hijacker)
+			if !hok { /* w is not Hijacker... oh well... */
+				h = nil
 			}
-		}
 
-		h.ServeHTTP(w, r)
-	})
+			w = &compressResponseWriter{
+				Writer:         gw,
+				ResponseWriter: w,
+				Hijacker:       h,
+			}
+
+			break L
+		case "deflate":
+			w.Header().Set("Content-Encoding", "deflate")
+
+			fw, _ := flate.NewWriter(w, ch.level)
+			defer fw.Close()
+
+			h, hok := w.(http.Hijacker)
+			if !hok { /* w is not Hijacker... oh well... */
+				h = nil
+			}
+
+			w = &compressResponseWriter{
+				Writer:         fw,
+				ResponseWriter: w,
+				Hijacker:       h,
+			}
+
+			break L
+		}
+	}
+
+	// Call the wrapped handler
+	ch.h.ServeHTTP(w, r)
 }
