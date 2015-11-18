@@ -50,7 +50,7 @@ func CompressHandler(h http.Handler) http.Handler {
 // or any integer value between gzip.BestSpeed and gzip.BestCompression inclusive.
 // gzip.DefaultCompression is used in case of invalid compression level.
 func CompressHandlerLevel(h http.Handler, level int) http.Handler {
-	if level != gzip.DefaultCompression && level != gzip.NoCompression && (level < gzip.BestSpeed || level > gzip.BestCompression) {
+	if level < gzip.DefaultCompression || level > gzip.BestCompression {
 		level = gzip.DefaultCompression
 	}
 
