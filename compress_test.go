@@ -53,6 +53,9 @@ func TestCompressHandlerGzip(t *testing.T) {
 	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
 		t.Errorf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "gzip")
 	}
+	if vary := w.HeaderMap.Get("Vary"); vary != "Accept-Encoding" {
+		t.Errorf("wrong content type, got %s want %s", vary, "Accept-Encoding")
+	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Errorf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
@@ -69,6 +72,9 @@ func TestCompressHandlerDeflate(t *testing.T) {
 	compressedRequest(w, "deflate")
 	if w.HeaderMap.Get("Content-Encoding") != "deflate" {
 		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "deflate")
+	}
+	if vary := w.HeaderMap.Get("Vary"); vary != "Accept-Encoding" {
+		t.Errorf("wrong content type, got %s want %s", vary, "Accept-Encoding")
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")

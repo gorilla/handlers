@@ -33,6 +33,7 @@ func (w *compressResponseWriter) Write(b []byte) (int, error) {
 		h.Set("Content-Type", http.DetectContentType(b))
 	}
 	h.Del("Content-Length")
+	w.Header().Add("Vary", "Accept-Encoding")
 
 	return w.Writer.Write(b)
 }
@@ -60,7 +61,6 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 			switch strings.TrimSpace(enc) {
 			case "gzip":
 				w.Header().Set("Content-Encoding", "gzip")
-				w.Header().Add("Vary", "Accept-Encoding")
 
 				gw, _ := gzip.NewWriterLevel(w, level)
 				defer gw.Close()
@@ -79,7 +79,6 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 				break L
 			case "deflate":
 				w.Header().Set("Content-Encoding", "deflate")
-				w.Header().Add("Vary", "Accept-Encoding")
 
 				fw, _ := flate.NewWriter(w, level)
 				defer fw.Close()
