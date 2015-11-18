@@ -10,7 +10,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 )
+
+// gzipPool is a pool of gzip writers using gzip.DefaultCompression.
+// Note: Due to the inability to change the level after initialization other
+// levels do not use pooled writers.
+var gzipPool = sync.Pool{
+	New: func() interface{} {
+		return gzip.NewWriter(nil)
+	}}
 
 // compressHandler is a http.Handler that performs gzip/flate compression for
 // HTTP responses.
@@ -39,6 +48,7 @@ func (w *compressResponseWriter) Write(b []byte) (int, error) {
 	if h.Get("Content-Type") == "" {
 		h.Set("Content-Type", http.DetectContentType(b))
 	}
+
 	h.Del("Content-Length")
 	w.Header().Add("Vary", "Accept-Encoding")
 
@@ -58,7 +68,7 @@ func CompressHandler(h http.Handler) http.Handler {
 // or any integer value between gzip.BestSpeed and gzip.BestCompression inclusive.
 // gzip.DefaultCompression is used in case of invalid compression level.
 func CompressHandlerLevel(h http.Handler, level int) http.Handler {
-	if level != gzip.DefaultCompression && level != gzip.NoCompression && (level < gzip.BestSpeed || level > gzip.BestCompression) {
+	if level < gzip.DefaultCompression || level > gzip.BestCompression {
 		level = gzip.DefaultCompression
 	}
 
@@ -73,7 +83,19 @@ L:
 		case "gzip":
 			w.Header().Set("Content-Encoding", "gzip")
 
-			gw, _ := gzip.NewWriterLevel(w, ch.level)
+			var gw *gzip.Writer
+			switch ch.level {
+			// Use a pooled writer where possible
+			case gzip.DefaultCompression:
+				gw = gzipPool.Get().(*gzip.Writer)
+				// Explicitly reset the Writer before use.
+				gw.Reset(w)
+				// Only return a writer of the same level.
+				defer gzipPool.Put(gw)
+			default:
+				gw, _ = gzip.NewWriterLevel(w, ch.level)
+			}
+
 			defer gw.Close()
 
 			h, hok := w.(http.Hijacker)
