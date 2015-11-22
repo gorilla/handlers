@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"compress/flate"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,14 +15,14 @@ import (
 
 var contentType = "text/plain; charset=utf-8"
 
-func compressedRequest(w *httptest.ResponseRecorder, compression string) {
-	CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func compressedRequest(w *httptest.ResponseRecorder, compression string, level int) {
+	CompressHandlerLevel(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", strconv.Itoa(9*1024))
 		w.Header().Set("Content-Type", contentType)
 		for i := 0; i < 1024; i++ {
 			io.WriteString(w, "Gorilla!\n")
 		}
-	})).ServeHTTP(w, &http.Request{
+	}), level).ServeHTTP(w, &http.Request{
 		Method: "GET",
 		Header: http.Header{
 			"Accept-Encoding": []string{compression},
@@ -32,7 +33,7 @@ func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 
 func TestCompressHandlerNoCompression(t *testing.T) {
 	w := httptest.NewRecorder()
-	compressedRequest(w, "")
+	compressedRequest(w, "", flate.DefaultCompression)
 	if enc := w.HeaderMap.Get("Content-Encoding"); enc != "" {
 		t.Errorf("wrong content encoding, got %q want %q", enc, "")
 	}
@@ -49,7 +50,7 @@ func TestCompressHandlerNoCompression(t *testing.T) {
 
 func TestCompressHandlerGzip(t *testing.T) {
 	w := httptest.NewRecorder()
-	compressedRequest(w, "gzip")
+	compressedRequest(w, "gzip", flate.DefaultCompression)
 	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
 		t.Errorf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "gzip")
 	}
@@ -69,7 +70,7 @@ func TestCompressHandlerGzip(t *testing.T) {
 
 func TestCompressHandlerDeflate(t *testing.T) {
 	w := httptest.NewRecorder()
-	compressedRequest(w, "deflate")
+	compressedRequest(w, "deflate", flate.DefaultCompression)
 	if w.HeaderMap.Get("Content-Encoding") != "deflate" {
 		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "deflate")
 	}
@@ -86,11 +87,41 @@ func TestCompressHandlerDeflate(t *testing.T) {
 
 func TestCompressHandlerGzipDeflate(t *testing.T) {
 	w := httptest.NewRecorder()
-	compressedRequest(w, "gzip, deflate ")
+	compressedRequest(w, "gzip, deflate ", flate.DefaultCompression)
 	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
 		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "gzip")
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
+	}
+}
+
+func BenchmarkCompressHandlerGzipDefaultCompression(b *testing.B) {
+	b.StopTimer()
+	w := httptest.NewRecorder()
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		compressedRequest(w, "gzip", flate.DefaultCompression)
+	}
+}
+
+func BenchmarkCompressHandlerGzipBestCompression(b *testing.B) {
+	b.StopTimer()
+	w := httptest.NewRecorder()
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		compressedRequest(w, "gzip", flate.BestCompression)
+	}
+}
+
+func BenchmarkCompressHandlerGzipBestSpeed(b *testing.B) {
+	b.StopTimer()
+	w := httptest.NewRecorder()
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		compressedRequest(w, "gzip", flate.BestSpeed)
 	}
 }
