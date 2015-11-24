@@ -36,7 +36,7 @@ func parseRecoveryOptions(h http.Handler, opts ...RecoveryOption) http.Handler {
 //  	panic("Unexpected error!")
 //  })
 //
-//  http.ListenAndServe(":1123", handlers.RecoveryHandler(r))
+//  http.ListenAndServe(":1123", handlers.RecoveryHandler()(r))
 func RecoveryHandler(opts ...RecoveryOption) func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		r := &recoveryHandler{handler: h}
