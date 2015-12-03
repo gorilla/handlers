@@ -5,22 +5,22 @@ gorilla/handlers
 Package handlers is a collection of handlers (aka "HTTP middleware") for use
 with Go's `net/http` package (or any framework supporting `http.Handler`), including:
 
-* `LoggingHandler` for logging HTTP requests in the Apache [Common Log
+* [**LoggingHandler**](https://godoc.org/github.com/gorilla/handlers#LoggingHandler) for logging HTTP requests in the Apache [Common Log
   Format](http://httpd.apache.org/docs/2.2/logs.html#common).
-* `CombinedLoggingHandler` for logging HTTP requests in the Apache [Combined Log
+* [**CombinedLoggingHandler**](https://godoc.org/github.com/gorilla/handlers#CombinedLoggingHandler) for logging HTTP requests in the Apache [Combined Log
   Format](http://httpd.apache.org/docs/2.2/logs.html#combined) commonly used by
   both Apache and nginx.
-* `CompressHandler` for gzipping responses.
-* `ContentTypeHandler` for validating requests against a list of accepted
+* [**CompressHandler**](https://godoc.org/github.com/gorilla/handlers#CompressHandler) for gzipping responses.
+* [**ContentTypeHandler**](https://godoc.org/github.com/gorilla/handlers#ContentTypeHandler) for validating requests against a list of accepted
   content types.
-* `MethodHandler` for matching HTTP methods against handlers in a
+* [**MethodHandler**](https://godoc.org/github.com/gorilla/handlers#MethodHandler) for matching HTTP methods against handlers in a
   `map[string]http.Handler`
-* `ProxyHeaders` for populating `r.RemoteAddr` and `r.URL.Scheme` based on the
+* [**ProxyHeaders**](https://godoc.org/github.com/gorilla/handlers#ProxyHeaders) for populating `r.RemoteAddr` and `r.URL.Scheme` based on the
   `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto` and RFC7239 `Forwarded`
   headers when running a Go server behind a HTTP reverse proxy.
-* `CanonicalHost` for re-directing to the preferred host when handling multiple 
+* [**CanonicalHost**](https://godoc.org/github.com/gorilla/handlers#CanonicalHost) for re-directing to the preferred host when handling multiple 
   domains (i.e. multiple CNAME aliases).
-* `RecoveryHandler` for recovering from unexpected panics.
+* [**RecoveryHandler**](https://godoc.org/github.com/gorilla/handlers#RecoveryHandler) for recovering from unexpected panics.
 
 Other handlers are documented [on the Gorilla
 website](http://www.gorillatoolkit.org/pkg/handlers).
