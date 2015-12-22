@@ -1,22 +1,114 @@
 package handlers
 
-import "net/http"
+import (
+	// "log"
+	"net/http"
+	"strconv"
+	"strings"
+)
 
 // CORSOption represents a functional option for configuring the CORS middleware.
 type CORSOption func(*cors) error
 
 type cors struct {
-	h              http.Handler
-	allowedHeaders []string
-	allowedMethods []string
-	allowedOrigins []string
-	maxAge         int
-	ignoreOptions  bool
+	h                http.Handler
+	allowedHeaders   []string
+	allowedMethods   []string
+	allowedOrigins   []string
+	exposedHeaders   []string
+	maxAge           int
+	ignoreOptions    bool
+	allowCredentials bool
 }
 
-func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+var (
+	defaultCorsMethods = []string{"GET", "HEAD", "POST"}
+	defaultCorsHeaders = []string{"Accept", "Accept-Language", "Content-Language"}
+)
 
-	ch.h.ServeHTTP(w, r)
+const (
+	corsOptionMethod           string = "OPTIONS"
+	corsAllowOriginHeader      string = "Access-Control-Allow-Origin"
+	corsExposeHeadersHeader    string = "Access-Control-Expose-Headers"
+	corsMaxAgeHeader           string = "Access-Control-Max-Age"
+	corsAllowMethodsHeader     string = "Access-Control-Allow-Methods"
+	corsAllowHeadersHeader     string = "Access-Control-Allow-Headers"
+	corsAllowCredentialsHeader string = "Access-Control-Allow-Credentials"
+	corsRequestMethodHeader    string = "Access-Control-Request-Method"
+	corsRequestHeadersHeader   string = "Access-Control-Request-Headers"
+	corsOriginHeader           string = "Origin"
+	corsVaryHeader             string = "Vary"
+	corsGlobMatch              string = "*"
+)
+
+func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get(corsOriginHeader)
+
+	if !ch.isOriginAllowed(origin) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	handler := ch.h
+	defer func() {
+		handler.ServeHTTP(w, r)
+	}()
+
+	if r.Method == corsOptionMethod && !ch.ignoreOptions {
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { return })
+		if _, ok := r.Header[corsRequestMethodHeader]; !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		method := r.Header.Get(corsRequestMethodHeader)
+		if !ch.isMatch(method, ch.allowedMethods) {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		requestHeaders := strings.Split(r.Header.Get(corsRequestHeadersHeader), ",")
+		allowedHeaders := []string{}
+		for _, v := range requestHeaders {
+			canonicalHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
+			if canonicalHeader == "" || ch.isMatch(canonicalHeader, defaultCorsHeaders) {
+				continue
+			}
+
+			if !ch.isMatch(canonicalHeader, ch.allowedHeaders) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+
+			allowedHeaders = append(allowedHeaders, canonicalHeader)
+		}
+
+		if len(allowedHeaders) > 0 {
+			w.Header().Set(corsAllowHeadersHeader, strings.Join(allowedHeaders, ","))
+		}
+
+		if ch.maxAge > 0 {
+			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(ch.maxAge))
+		}
+
+		if !ch.isMatch(method, defaultCorsMethods) {
+			w.Header().Set(corsAllowMethodsHeader, method)
+		}
+	} else {
+		if len(ch.exposedHeaders) > 0 {
+			w.Header().Set(corsExposeHeadersHeader, strings.Join(ch.exposedHeaders, ","))
+		}
+	}
+
+	if ch.allowCredentials {
+		w.Header().Set(corsAllowCredentialsHeader, "true")
+	}
+
+	if len(ch.allowedOrigins) > 1 {
+		w.Header().Set(corsVaryHeader, corsOriginHeader)
+	}
+
+	w.Header().Set(corsAllowOriginHeader, origin)
 }
 
 // CORS provides Cross-Origin Resource Sharing middleware.
@@ -53,7 +145,10 @@ func CORS(opts ...CORSOption) func(http.Handler) http.Handler {
 }
 
 func parseCORSOptions(opts ...CORSOption) *cors {
-	ch := &cors{}
+	ch := &cors{
+		allowedMethods: defaultCorsMethods,
+		allowedHeaders: defaultCorsHeaders,
+	}
 
 	for _, option := range opts {
 		option(ch)
@@ -71,7 +166,17 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 // The headers Content-Type, Expires, Cache-Control, ... are always allowed.
 func AllowedHeaders(headers []string) CORSOption {
 	return func(ch *cors) error {
-		ch.allowedHeaders = headers
+		for _, v := range headers {
+			normalizedHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
+			if normalizedHeader == "" {
+				continue
+			}
+
+			if !ch.isMatch(normalizedHeader, ch.allowedHeaders) {
+				ch.allowedHeaders = append(ch.allowedHeaders, normalizedHeader)
+			}
+		}
+
 		return nil
 	}
 }
@@ -79,7 +184,17 @@ func AllowedHeaders(headers []string) CORSOption {
 // AllowedMethods ...
 func AllowedMethods(methods []string) CORSOption {
 	return func(ch *cors) error {
-		ch.allowedMethods = methods
+		for _, v := range methods {
+			normalizedMethod := strings.ToUpper(strings.TrimSpace(v))
+			if normalizedMethod == "" {
+				continue
+			}
+
+			if !ch.isMatch(normalizedMethod, ch.allowedMethods) {
+				ch.allowedHeaders = append(ch.allowedHeaders, normalizedMethod)
+			}
+		}
+
 		return nil
 	}
 }
@@ -89,7 +204,23 @@ func AllowedMethods(methods []string) CORSOption {
 // Note: Passing in a []string{"*"} will allow any domain.
 func AllowedOrigins(origins []string) CORSOption {
 	return func(ch *cors) error {
+		for _, v := range origins {
+			if v == corsGlobMatch {
+				ch.allowedOrigins = []string{corsGlobMatch}
+				return nil
+			}
+		}
+
 		ch.allowedOrigins = origins
+		return nil
+	}
+}
+
+// ExposeHeaders are additional headers outside of those which are apart
+// of the simple response headers (http://www.w3.org/TR/cors/#simple-response-header)
+func ExposedHeaders(headers []string) CORSOption {
+	return func(ch *cors) error {
+		ch.exposedHeaders = headers
 		return nil
 	}
 }
@@ -117,4 +248,36 @@ func IgnoreOptions() CORSOption {
 		ch.ignoreOptions = true
 		return nil
 	}
+}
+
+// AllowCredentials ...
+func AllowCredentials() CORSOption {
+	return func(ch *cors) error {
+		ch.allowCredentials = true
+		return nil
+	}
+}
+
+func (ch *cors) isOriginAllowed(origin string) bool {
+	if origin == "" {
+		return false
+	}
+
+	for _, allowedOrigin := range ch.allowedOrigins {
+		if allowedOrigin == origin || allowedOrigin == corsGlobMatch {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (ch *cors) isMatch(needle string, haystack []string) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+
+	return false
 }
