@@ -38,7 +38,7 @@ const (
 	corsRequestHeadersHeader   string = "Access-Control-Request-Headers"
 	corsOriginHeader           string = "Origin"
 	corsVaryHeader             string = "Vary"
-	corsMatchAll               string = "*"
+	corsOriginMatchAll         string = "*"
 )
 
 func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -152,6 +152,7 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 	ch := &cors{
 		allowedMethods: defaultCorsMethods,
 		allowedHeaders: defaultCorsHeaders,
+		allowedOrigins: []string{corsOriginMatchAll},
 	}
 
 	for _, option := range opts {
@@ -209,8 +210,8 @@ func AllowedMethods(methods []string) CORSOption {
 func AllowedOrigins(origins []string) CORSOption {
 	return func(ch *cors) error {
 		for _, v := range origins {
-			if v == corsMatchAll {
-				ch.allowedOrigins = []string{corsMatchAll}
+			if v == corsOriginMatchAll {
+				ch.allowedOrigins = []string{corsOriginMatchAll}
 				return nil
 			}
 		}
@@ -268,7 +269,7 @@ func (ch *cors) isOriginAllowed(origin string) bool {
 	}
 
 	for _, allowedOrigin := range ch.allowedOrigins {
-		if allowedOrigin == origin || allowedOrigin == corsMatchAll {
+		if allowedOrigin == origin || allowedOrigin == corsOriginMatchAll {
 			return true
 		}
 	}
