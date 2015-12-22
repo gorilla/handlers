@@ -9,7 +9,6 @@ import (
 func TestCORSHandler(t *testing.T) {
 	// Test default configuration.
 	r := newRequest("GET", "http://www.example.com/")
-	r.Header.Set("Origin", "http://www.google.com/")
 
 	rr := httptest.NewRecorder()
 
