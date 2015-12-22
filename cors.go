@@ -38,7 +38,7 @@ const (
 	corsRequestHeadersHeader   string = "Access-Control-Request-Headers"
 	corsOriginHeader           string = "Origin"
 	corsVaryHeader             string = "Vary"
-	corsGlobMatch              string = "*"
+	corsMatchAll               string = "*"
 )
 
 func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,11 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		handler.ServeHTTP(w, r)
 	}()
 
-	if r.Method == corsOptionMethod && !ch.ignoreOptions {
+	if r.Method == corsOptionMethod {
+		if ch.ignoreOptions {
+			return
+		}
+
 		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { return })
 		if _, ok := r.Header[corsRequestMethodHeader]; !ok {
 			w.WriteHeader(http.StatusBadRequest)
@@ -205,8 +209,8 @@ func AllowedMethods(methods []string) CORSOption {
 func AllowedOrigins(origins []string) CORSOption {
 	return func(ch *cors) error {
 		for _, v := range origins {
-			if v == corsGlobMatch {
-				ch.allowedOrigins = []string{corsGlobMatch}
+			if v == corsMatchAll {
+				ch.allowedOrigins = []string{corsMatchAll}
 				return nil
 			}
 		}
@@ -264,7 +268,7 @@ func (ch *cors) isOriginAllowed(origin string) bool {
 	}
 
 	for _, allowedOrigin := range ch.allowedOrigins {
-		if allowedOrigin == origin || allowedOrigin == corsGlobMatch {
+		if allowedOrigin == origin || allowedOrigin == corsMatchAll {
 			return true
 		}
 	}
