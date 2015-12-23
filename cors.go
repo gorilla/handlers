@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	// "log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +23,7 @@ type cors struct {
 var (
 	defaultCorsMethods = []string{"GET", "HEAD", "POST"}
 	defaultCorsHeaders = []string{"Accept", "Accept-Language", "Content-Language"}
+	nilHandlerFunc     = http.HandlerFunc(nilHandler)
 )
 
 const (
@@ -53,7 +53,7 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { return })
+			handler = nilHandlerFunc
 			if _, ok := r.Header[corsRequestMethodHeader]; !ok {
 				w.WriteHeader(http.StatusBadRequest)
 				return
@@ -280,4 +280,8 @@ func (ch *cors) isMatch(needle string, haystack []string) bool {
 	}
 
 	return false
+}
+
+func nilHandler(w http.ResponseWriter, r *http.Request) {
+	return
 }
