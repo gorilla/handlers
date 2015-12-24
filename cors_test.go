@@ -19,6 +19,21 @@ func TestDefaultCORSHandlerReturnsOk(t *testing.T) {
 	}
 }
 
+func TestDefaultCORSHandlerReturnsOkWithOrigin(t *testing.T) {
+	r := newRequest("GET", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS()(testHandler).ServeHTTP(rr, r)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusFound)
+	}
+}
+
 func TestCORSHandlerIgnoreOptionsFallsThrough(t *testing.T) {
 	r := newRequest("OPTIONS", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
