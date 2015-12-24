@@ -87,6 +87,22 @@ func TestCORSHandlerUnsetRequethMethodForPreflightBadRequest(t *testing.T) {
 	}
 }
 
+func TestCORSHandlerInvalidRequethMethodForPreflightMethodNotAllowed(t *testing.T) {
+	r := newRequest("OPTIONS", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, "DELETE")
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS()(testHandler).ServeHTTP(rr, r)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
 func TestCORSHandlerAllowedMethodForPreflight(t *testing.T) {
 	r := newRequest("OPTIONS", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
@@ -174,6 +190,23 @@ func TestCORSHandlerAllowedHeaderForPreflight(t *testing.T) {
 	header := rr.HeaderMap.Get(corsAllowHeadersHeader)
 	if header != "Content-Type" {
 		t.Fatalf("bad header: expected Content-Type header, got empty header.")
+	}
+}
+
+func TestCORSHandlerInvalidHeaderForPreflightForbidden(t *testing.T) {
+	r := newRequest("OPTIONS", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, "POST")
+	r.Header.Set(corsRequestHeadersHeader, "Content-Type")
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS()(testHandler).ServeHTTP(rr, r)
+
+	if status := rr.Code; status != http.StatusForbidden {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusForbidden)
 	}
 }
 
