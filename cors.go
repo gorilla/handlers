@@ -41,67 +41,71 @@ const (
 )
 
 func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if origin := r.Header.Get(corsOriginHeader); ch.isOriginAllowed(origin) {
-		if r.Method == corsOptionMethod {
-			if ch.ignoreOptions {
-				ch.h.ServeHTTP(w, r)
-				return
-			}
-
-			if _, ok := r.Header[corsRequestMethodHeader]; !ok {
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-
-			method := r.Header.Get(corsRequestMethodHeader)
-			if !ch.isMatch(method, ch.allowedMethods) {
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return
-			}
-
-			requestHeaders := strings.Split(r.Header.Get(corsRequestHeadersHeader), ",")
-			allowedHeaders := []string{}
-			for _, v := range requestHeaders {
-				canonicalHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
-				if canonicalHeader == "" || ch.isMatch(canonicalHeader, defaultCorsHeaders) {
-					continue
-				}
-
-				if !ch.isMatch(canonicalHeader, ch.allowedHeaders) {
-					w.WriteHeader(http.StatusForbidden)
-					return
-				}
-
-				allowedHeaders = append(allowedHeaders, canonicalHeader)
-			}
-
-			if len(allowedHeaders) > 0 {
-				w.Header().Set(corsAllowHeadersHeader, strings.Join(allowedHeaders, ","))
-			}
-
-			if ch.maxAge > 0 {
-				w.Header().Set(corsMaxAgeHeader, strconv.Itoa(ch.maxAge))
-			}
-
-			if !ch.isMatch(method, defaultCorsMethods) {
-				w.Header().Set(corsAllowMethodsHeader, method)
-			}
-		} else {
-			if len(ch.exposedHeaders) > 0 {
-				w.Header().Set(corsExposeHeadersHeader, strings.Join(ch.exposedHeaders, ","))
-			}
-		}
-
-		if ch.allowCredentials {
-			w.Header().Set(corsAllowCredentialsHeader, "true")
-		}
-
-		if len(ch.allowedOrigins) > 1 {
-			w.Header().Set(corsVaryHeader, corsOriginHeader)
-		}
-
-		w.Header().Set(corsAllowOriginHeader, origin)
+	origin := r.Header.Get(corsOriginHeader)
+	if !ch.isOriginAllowed(origin) {
+		ch.h.ServeHTTP(w, r)
+		return
 	}
+
+	if r.Method == corsOptionMethod {
+		if ch.ignoreOptions {
+			ch.h.ServeHTTP(w, r)
+			return
+		}
+
+		if _, ok := r.Header[corsRequestMethodHeader]; !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		method := r.Header.Get(corsRequestMethodHeader)
+		if !ch.isMatch(method, ch.allowedMethods) {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		requestHeaders := strings.Split(r.Header.Get(corsRequestHeadersHeader), ",")
+		allowedHeaders := []string{}
+		for _, v := range requestHeaders {
+			canonicalHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
+			if canonicalHeader == "" || ch.isMatch(canonicalHeader, defaultCorsHeaders) {
+				continue
+			}
+
+			if !ch.isMatch(canonicalHeader, ch.allowedHeaders) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+
+			allowedHeaders = append(allowedHeaders, canonicalHeader)
+		}
+
+		if len(allowedHeaders) > 0 {
+			w.Header().Set(corsAllowHeadersHeader, strings.Join(allowedHeaders, ","))
+		}
+
+		if ch.maxAge > 0 {
+			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(ch.maxAge))
+		}
+
+		if !ch.isMatch(method, defaultCorsMethods) {
+			w.Header().Set(corsAllowMethodsHeader, method)
+		}
+	} else {
+		if len(ch.exposedHeaders) > 0 {
+			w.Header().Set(corsExposeHeadersHeader, strings.Join(ch.exposedHeaders, ","))
+		}
+	}
+
+	if ch.allowCredentials {
+		w.Header().Set(corsAllowCredentialsHeader, "true")
+	}
+
+	if len(ch.allowedOrigins) > 1 {
+		w.Header().Set(corsVaryHeader, corsOriginHeader)
+	}
+
+	w.Header().Set(corsAllowOriginHeader, origin)
 
 	ch.h.ServeHTTP(w, r)
 }
