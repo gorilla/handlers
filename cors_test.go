@@ -7,19 +7,15 @@ import (
 )
 
 func TestDefaultCORSHandlerReturnsOk(t *testing.T) {
-	methods := []string{"GET", "HEAD", "POST"}
+	r := newRequest("GET", "http://www.example.com/")
+	rr := httptest.NewRecorder()
 
-	for _, method := range methods {
-		r := newRequest(method, "http://www.example.com/")
-		rr := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
-		testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	CORS()(testHandler).ServeHTTP(rr, r)
 
-		CORS()(testHandler).ServeHTTP(rr, r)
-
-		if status := rr.Code; status != http.StatusOK {
-			t.Fatalf("bad status: got %v want %v for method %s", status, http.StatusFound, method)
-		}
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusFound)
 	}
 }
 
@@ -41,27 +37,23 @@ func TestCORSHandlerIgnoreOptionsFallsThrough(t *testing.T) {
 }
 
 func TestCORSHandlerSetsExposedHeaders(t *testing.T) {
-	methods := []string{"GET", "HEAD", "POST"}
+	// Test default configuration.
+	r := newRequest("GET", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
 
-	for _, method := range methods {
-		// Test default configuration.
-		r := newRequest(method, "http://www.example.com/")
-		r.Header.Set("Origin", r.URL.String())
+	rr := httptest.NewRecorder()
 
-		rr := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
-		testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	CORS(ExposedHeaders([]string{"X-CORS-TEST"}))(testHandler).ServeHTTP(rr, r)
 
-		CORS(ExposedHeaders([]string{"X-CORS-TEST"}))(testHandler).ServeHTTP(rr, r)
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	}
 
-		if status := rr.Code; status != http.StatusOK {
-			t.Fatalf("bad status: got %v want %v for method %s", status, http.StatusOK, method)
-		}
-
-		header := rr.HeaderMap.Get(corsExposeHeadersHeader)
-		if header != "X-Cors-Test" {
-			t.Fatalf("bad header: expected X-Cors-Test header, got empty header for method %s.", method)
-		}
+	header := rr.HeaderMap.Get(corsExposeHeadersHeader)
+	if header != "X-Cors-Test" {
+		t.Fatal("bad header: expected X-Cors-Test header, got empty header for method.")
 	}
 }
 
@@ -98,6 +90,53 @@ func TestCORSHandlerAllowedMethodForPreflight(t *testing.T) {
 	header := rr.HeaderMap.Get(corsAllowMethodsHeader)
 	if header != "DELETE" {
 		t.Fatalf("bad header: expected DELETE method header, got empty header.")
+	}
+}
+
+func TestCORSHandlerAllowMethodsNotSetForSimpleRequestPreflight(t *testing.T) {
+	for _, method := range defaultCorsMethods {
+		r := newRequest("OPTIONS", "http://www.example.com/")
+		r.Header.Set("Origin", r.URL.String())
+		r.Header.Set(corsRequestMethodHeader, method)
+
+		rr := httptest.NewRecorder()
+
+		testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+		CORS()(testHandler).ServeHTTP(rr, r)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+		}
+
+		header := rr.HeaderMap.Get(corsAllowMethodsHeader)
+		if header != "" {
+			t.Fatalf("bad header: expected empty method header, got %s.", header)
+		}
+	}
+}
+
+func TestCORSHandlerAllowedHeaderNotSetForSimpleRequestPreflight(t *testing.T) {
+	for _, simpleHeader := range defaultCorsHeaders {
+		r := newRequest("OPTIONS", "http://www.example.com/")
+		r.Header.Set("Origin", r.URL.String())
+		r.Header.Set(corsRequestMethodHeader, "GET")
+		r.Header.Set(corsRequestHeadersHeader, simpleHeader)
+
+		rr := httptest.NewRecorder()
+
+		testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+		CORS()(testHandler).ServeHTTP(rr, r)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+		}
+
+		header := rr.HeaderMap.Get(corsAllowHeadersHeader)
+		if header != "" {
+			t.Fatalf("bad header: expected empty header, got %s.", header)
+		}
 	}
 }
 
