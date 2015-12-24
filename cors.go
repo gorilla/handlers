@@ -193,7 +193,7 @@ func AllowedMethods(methods []string) CORSOption {
 			}
 
 			if !ch.isMatch(normalizedMethod, ch.allowedMethods) {
-				ch.allowedHeaders = append(ch.allowedHeaders, normalizedMethod)
+				ch.allowedMethods = append(ch.allowedMethods, normalizedMethod)
 			}
 		}
 
@@ -219,10 +219,21 @@ func AllowedOrigins(origins []string) CORSOption {
 }
 
 // ExposeHeaders can be used to specify headers that are available
-// to a user agent without sending a preflight request.
+// and will not be stripped out by the user-agent.
 func ExposedHeaders(headers []string) CORSOption {
 	return func(ch *cors) error {
-		ch.exposedHeaders = headers
+		ch.exposedHeaders = []string{}
+		for _, v := range headers {
+			normalizedHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
+			if normalizedHeader == "" {
+				continue
+			}
+
+			if !ch.isMatch(normalizedHeader, ch.exposedHeaders) {
+				ch.exposedHeaders = append(ch.exposedHeaders, normalizedHeader)
+			}
+		}
+
 		return nil
 	}
 }
