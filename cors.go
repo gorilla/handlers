@@ -23,7 +23,6 @@ type cors struct {
 var (
 	defaultCorsMethods = []string{"GET", "HEAD", "POST"}
 	defaultCorsHeaders = []string{"Accept", "Accept-Language", "Content-Language"}
-	nilHandlerFunc     = http.HandlerFunc(nilHandler)
 )
 
 const (
@@ -42,18 +41,13 @@ const (
 )
 
 func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler := ch.h
-	defer func() {
-		handler.ServeHTTP(w, r)
-	}()
-
 	if origin := r.Header.Get(corsOriginHeader); ch.isOriginAllowed(origin) {
 		if r.Method == corsOptionMethod {
 			if ch.ignoreOptions {
+				ch.h.ServeHTTP(w, r)
 				return
 			}
 
-			handler = nilHandlerFunc
 			if _, ok := r.Header[corsRequestMethodHeader]; !ok {
 				w.WriteHeader(http.StatusBadRequest)
 				return
@@ -108,6 +102,8 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set(corsAllowOriginHeader, origin)
 	}
+
+	ch.h.ServeHTTP(w, r)
 }
 
 // CORS provides Cross-Origin Resource Sharing middleware.
@@ -184,6 +180,7 @@ func AllowedHeaders(headers []string) CORSOption {
 // AllowedMethods ...
 func AllowedMethods(methods []string) CORSOption {
 	return func(ch *cors) error {
+		ch.allowedMethods = []string{}
 		for _, v := range methods {
 			normalizedMethod := strings.ToUpper(strings.TrimSpace(v))
 			if normalizedMethod == "" {
@@ -280,8 +277,4 @@ func (ch *cors) isMatch(needle string, haystack []string) bool {
 	}
 
 	return false
-}
-
-func nilHandler(w http.ResponseWriter, r *http.Request) {
-	return
 }
