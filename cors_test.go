@@ -72,7 +72,7 @@ func TestCORSHandlerSetsExposedHeaders(t *testing.T) {
 	}
 }
 
-func TestCORSHandlerUnsetRequethMethodForPreflightBadRequest(t *testing.T) {
+func TestCORSHandlerUnsetRequestMethodForPreflightBadRequest(t *testing.T) {
 	r := newRequest("OPTIONS", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 
@@ -87,7 +87,7 @@ func TestCORSHandlerUnsetRequethMethodForPreflightBadRequest(t *testing.T) {
 	}
 }
 
-func TestCORSHandlerInvalidRequethMethodForPreflightMethodNotAllowed(t *testing.T) {
+func TestCORSHandlerInvalidRequestMethodForPreflightMethodNotAllowed(t *testing.T) {
 	r := newRequest("OPTIONS", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, "DELETE")
