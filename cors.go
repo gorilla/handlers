@@ -132,11 +132,6 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func CORS(opts ...CORSOption) func(http.Handler) http.Handler {
 	ch := parseCORSOptions(opts...)
 
-	// TODO(all): Set defaults
-	// Note: append(allowedHeaders, defaultHeaders...) - the default headers here
-	// should always be allowed:
-	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Simple_requests
-
 	return func(h http.Handler) http.Handler {
 		ch.h = h
 		return ch
@@ -163,7 +158,10 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 
 // AllowedHeaders adds the provided headers to the list of allowed headers in a
 // CORS request.
-// The headers Content-Type, Expires, Cache-Control, ... are always allowed.
+// This is an append operation so the headers Accept, Accept-Language,
+// and Content-Language are always allowed.
+// Content-Type must be explicitly declared if accepting Content-Types other than
+// application/x-www-form-urlencoded, multipart/form-data, or text/plain.
 func AllowedHeaders(headers []string) CORSOption {
 	return func(ch *cors) error {
 		for _, v := range headers {
@@ -181,7 +179,10 @@ func AllowedHeaders(headers []string) CORSOption {
 	}
 }
 
-// AllowedMethods ...
+// AllowedMethods can be used to explicitly allow methods in the
+// Access-Control-Allow-Methods header.
+// This is a replacement operation so you must also
+// pass GET, HEAD, and POST if you wish to support those methods.
 func AllowedMethods(methods []string) CORSOption {
 	return func(ch *cors) error {
 		ch.allowedMethods = []string{}
@@ -217,8 +218,8 @@ func AllowedOrigins(origins []string) CORSOption {
 	}
 }
 
-// ExposeHeaders are additional headers outside of those which are apart
-// of the simple response headers (http://www.w3.org/TR/cors/#simple-response-header)
+// ExposeHeaders can be used to specify headers that are available
+// to a user agent without sending a preflight request.
 func ExposedHeaders(headers []string) CORSOption {
 	return func(ch *cors) error {
 		ch.exposedHeaders = headers
@@ -251,7 +252,8 @@ func IgnoreOptions() CORSOption {
 	}
 }
 
-// AllowCredentials ...
+// AllowCredentials can be used to specify that the user agent may pass
+// authentication details along with the request.
 func AllowCredentials() CORSOption {
 	return func(ch *cors) error {
 		ch.allowCredentials = true
