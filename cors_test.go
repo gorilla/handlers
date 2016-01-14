@@ -270,3 +270,26 @@ func TestCORSHandlerMultipleAllowOriginsSetsVaryHeader(t *testing.T) {
 		t.Fatalf("bad header: expected %s to be %s, got %s.", corsVaryHeader, corsOriginHeader, header)
 	}
 }
+
+func TestCORSWithMultipleHandlers(t *testing.T) {
+	var lastHandledBy string
+	corsMiddleware := CORS()
+
+	testHandler1 := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lastHandledBy = "testHandler1"
+	})
+	testHandler2 := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lastHandledBy = "testHandler2"
+	})
+
+	r1 := newRequest("GET", "http://www.example.com/")
+	rr1 := httptest.NewRecorder()
+	handler1 := corsMiddleware(testHandler1)
+
+	corsMiddleware(testHandler2)
+
+	handler1.ServeHTTP(rr1, r1)
+	if lastHandledBy != "testHandler1" {
+		t.Fatalf("bad CORS() registration: Handler served should be Handler registered")
+	}
+}
