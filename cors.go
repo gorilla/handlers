@@ -130,9 +130,8 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //  }
 //
 func CORS(opts ...CORSOption) func(http.Handler) http.Handler {
-	ch := parseCORSOptions(opts...)
-
 	return func(h http.Handler) http.Handler {
+		ch := parseCORSOptions(opts...)
 		ch.h = h
 		return ch
 	}
