@@ -26,7 +26,7 @@ type originValidator func(string) bool
 
 var (
 	defaultCorsMethods = []string{"GET", "HEAD", "POST"}
-	defaultCorsHeaders = []string{"Accept", "Accept-Language", "Content-Language"}
+	defaultCorsHeaders = []string{"Accept", "Accept-Language", "Content-Language", "Origin"}
 )
 
 const (
