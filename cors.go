@@ -26,7 +26,8 @@ type originValidator func(string) bool
 
 var (
 	defaultCorsMethods = []string{"GET", "HEAD", "POST"}
-	defaultCorsHeaders = []string{"Accept", "Accept-Language", "Content-Language"}
+	defaultCorsHeaders = []string{"Accept", "Accept-Language", "Content-Language", "Origin"}
+	// (WebKit/Safari v9 sends the Origin header by default in AJAX requests)
 )
 
 const (
