@@ -53,6 +53,9 @@ func (c canonical) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.EqualFold(cleanHost(r.Host), dest.Host) {
 		// Re-build the destination URL
 		dest := dest.Scheme + "://" + dest.Host + r.URL.Path
+		if r.URL.RawQuery != "" {
+			dest += "?" + r.URL.RawQuery
+		}
 		http.Redirect(w, r, dest, c.code)
 		return
 	}

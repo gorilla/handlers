@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -46,6 +47,22 @@ func TestCanonicalHost(t *testing.T) {
 		t.Fatalf("bad re-direct: got %q want %q", rr.Header().Get("Location"), gorilla+r.URL.Path)
 	}
 
+}
+
+func TestKeepsQueryString(t *testing.T) {
+	google := "https://www.google.com"
+
+	rr := httptest.NewRecorder()
+	querystring := url.Values{"q": {"golang"}, "format": {"json"}}.Encode()
+	r := newRequest("GET", "http://www.example.com/search?"+querystring)
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	CanonicalHost(google, http.StatusFound)(testHandler).ServeHTTP(rr, r)
+
+	want := google + r.URL.Path + "?" + querystring
+	if rr.Header().Get("Location") != want {
+		t.Fatalf("bad re-direct: got %q want %q", rr.Header().Get("Location"), want)
+	}
 }
 
 func TestBadDomain(t *testing.T) {
