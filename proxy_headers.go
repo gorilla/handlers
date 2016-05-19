@@ -11,6 +11,7 @@ var (
 	xForwardedFor   = http.CanonicalHeaderKey("X-Forwarded-For")
 	xRealIP         = http.CanonicalHeaderKey("X-Real-IP")
 	xForwardedProto = http.CanonicalHeaderKey("X-Forwarded-Scheme")
+	xForwardedHost  = http.CanonicalHeaderKey("X-Forwarded-Host")
 )
 
 var (
@@ -49,7 +50,10 @@ func ProxyHeaders(h http.Handler) http.Handler {
 		if scheme := getScheme(r); scheme != "" {
 			r.URL.Scheme = scheme
 		}
-
+		// Set the host with the value passed by the proxy
+		if r.Header.Get(xForwardedHost) != "" {
+			r.Host = r.Header.Get(xForwardedHost)
+		}
 		// Call the next handler in the chain.
 		h.ServeHTTP(w, r)
 	}
