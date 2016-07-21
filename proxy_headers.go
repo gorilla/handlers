@@ -8,10 +8,11 @@ import (
 
 var (
 	// De-facto standard header keys.
-	xForwardedFor   = http.CanonicalHeaderKey("X-Forwarded-For")
-	xRealIP         = http.CanonicalHeaderKey("X-Real-IP")
-	xForwardedProto = http.CanonicalHeaderKey("X-Forwarded-Scheme")
-	xForwardedHost  = http.CanonicalHeaderKey("X-Forwarded-Host")
+	xForwardedFor    = http.CanonicalHeaderKey("X-Forwarded-For")
+	xForwardedHost   = http.CanonicalHeaderKey("X-Forwarded-Host")
+	xForwardedProto  = http.CanonicalHeaderKey("X-Forwarded-Proto")
+	xForwardedScheme = http.CanonicalHeaderKey("X-Forwarded-Scheme")
+	xRealIP          = http.CanonicalHeaderKey("X-Real-IP")
 )
 
 var (
@@ -29,9 +30,9 @@ var (
 
 // ProxyHeaders inspects common reverse proxy headers and sets the corresponding
 // fields in the HTTP request struct. These are X-Forwarded-For and X-Real-IP
-// for the remote (client) IP address, X-Forwarded-Proto for the scheme
-// (http|https) and the RFC7239 Forwarded header, which may include both client
-// IPs and schemes.
+// for the remote (client) IP address, X-Forwarded-Proto or X-Forwarded-Scheme
+// for the scheme (http|https) and the RFC7239 Forwarded header, which may
+// include both client IPs and schemes.
 //
 // NOTE: This middleware should only be used when behind a reverse
 // proxy like nginx, HAProxy or Apache. Reverse proxies that don't (or are
@@ -103,7 +104,9 @@ func getScheme(r *http.Request) string {
 	// Retrieve the scheme from X-Forwarded-Proto.
 	if proto := r.Header.Get(xForwardedProto); proto != "" {
 		scheme = strings.ToLower(proto)
-	} else if proto := r.Header.Get(forwarded); proto != "" {
+	} else if proto = r.Header.Get(xForwardedScheme); proto != "" {
+		scheme = strings.ToLower(proto)
+	} else if proto = r.Header.Get(forwarded); proto != "" {
 		// match should contain at least two elements if the protocol was
 		// specified in the Forwarded header. The first element will always be
 		// the 'proto=' capture, which we ignore. In the case of multiple proto
