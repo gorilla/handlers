@@ -47,6 +47,9 @@ func TestGetScheme(t *testing.T) {
 		{xForwardedProto, "https", "https"},
 		{xForwardedProto, "http", "http"},
 		{xForwardedProto, "HTTP", "http"},
+		{xForwardedScheme, "https", "https"},
+		{xForwardedScheme, "http", "http"},
+		{xForwardedScheme, "HTTP", "http"},
 		{forwarded, `For="[2001:db8:cafe::17]:4711`, ""},                      // No proto
 		{forwarded, `for=192.0.2.43, for=198.51.100.17;proto=https`, "https"}, // Multiple params before proto
 		{forwarded, `for=172.32.10.15; proto=https;by=127.0.0.1`, "https"},    // Space before proto
