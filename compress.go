@@ -22,7 +22,6 @@ type compressResponseWriter struct {
 
 func (w *compressResponseWriter) WriteHeader(c int) {
 	w.ResponseWriter.Header().Del("Content-Length")
-	w.ResponseWriter.WriteHeader(c)
 }
 
 func (w *compressResponseWriter) Header() http.Header {
