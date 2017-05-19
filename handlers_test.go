@@ -352,3 +352,23 @@ func TestHTTPMethodOverride(t *testing.T) {
 		}
 	}
 }
+
+func TestCallbackLoggingHandler(t *testing.T) {
+	called := false
+	h := CallbackLoggingHandler(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("Success"))
+		}),
+		func(l LogLine, r *http.Request) {
+			called = true
+		})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+
+	h.ServeHTTP(w, req)
+
+	if !called {
+		t.Errorf("didn't call callback")
+	}
+}
