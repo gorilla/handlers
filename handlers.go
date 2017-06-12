@@ -62,6 +62,13 @@ type combinedLoggingHandler struct {
 	handler http.Handler
 }
 
+// callbackLoggingHandler is http.Handler implementation for
+// CallbackLoggingHandler
+type callbackLoggingHandler struct {
+	callback func(req *http.Request, t time.Time, status, size int)
+	handler  http.Handler
+}
+
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	logger := makeLogger(w)
@@ -76,6 +83,13 @@ func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	url := *req.URL
 	h.handler.ServeHTTP(logger, req)
 	writeCombinedLog(h.writer, req, url, t, logger.Status(), logger.Size())
+}
+
+func (h callbackLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	t := time.Now()
+	logger := makeLogger(w)
+	h.handler.ServeHTTP(logger, req)
+	h.callback(req, t, logger.Status(), logger.Size())
 }
 
 func makeLogger(w http.ResponseWriter) loggingResponseWriter {
@@ -330,6 +344,26 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h}
+}
+
+// CallbackLoggingHandler returns a http.Handler that wraps h and calls the
+// callback r at the end of each request. The callback may be used to log the
+// request in the desired format.
+//
+// Example:
+//
+//  r := mux.NewRouter()
+//  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+//  	w.Write([]byte("This is a catch-all route"))
+//  })
+//  cb := func(r *http.Request, ts time.Time, status, size int) {
+//		duration := time.Now().Sub(ts)
+//		log.Printf("%s %d %.6f", r.RequestURI, status, duration)
+//  }
+//  loggedRouter := handlers.CallbackLoggingHandler(os.Stdout, r)
+//  http.ListenAndServe(":1123", loggedRouter)
+func CallbackLoggingHandler(cb func(r *http.Request, t time.Time, status, size int), h http.Handler) http.Handler {
+	return callbackLoggingHandler{cb, h}
 }
 
 // isContentType validates the Content-Type header matches the supplied

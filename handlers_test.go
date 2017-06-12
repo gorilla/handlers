@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -278,6 +279,31 @@ func TestLogPathRewrites(t *testing.T) {
 
 	if !strings.Contains(buf.String(), "GET /subdir/asdf HTTP") {
 		t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "GET /subdir/asdf HTTP")
+	}
+}
+
+func TestCallbackLoggingHandler(t *testing.T) {
+	var output string
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		req.URL.Path = "/" // simulate http.StripPrefix and friends
+		time.Sleep(10 * time.Millisecond)
+		w.WriteHeader(200)
+	})
+
+	callback := func(r *http.Request, ts time.Time, status, size int) {
+		duration := time.Now().Sub(ts)
+		if duration < (10 * time.Millisecond) {
+			t.Fatalf("Expected duration greater than %dns, got: %dns", 10*time.Millisecond, duration.Nanoseconds())
+		}
+		output = fmt.Sprintf("%s %d %d", r.URL.Path, status, size)
+	}
+	logger := CallbackLoggingHandler(callback, handler)
+
+	logger.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+
+	if output != "/ 200 0" {
+		t.Fatalf("Got %#v, wanted %#v", output, "/ 200 0")
 	}
 }
 
