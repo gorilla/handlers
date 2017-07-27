@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -230,6 +231,19 @@ func AllowedOrigins(origins []string) CORSOption {
 func AllowedOriginValidator(fn OriginValidator) CORSOption {
 	return func(ch *cors) error {
 		ch.allowedOriginValidator = fn
+		return nil
+	}
+}
+
+// AllowedOriginValidator validates urls against a regular expression for evaluating allowed origins in CORS requests, represented by the
+// 'Allow-Access-Control-Origin' HTTP header.
+func AllowedOriginRegexValidator(rgx string) CORSOption {
+	r := regexp.MustCompile(rgx)
+
+	return func(ch *cors) error {
+		ch.allowedOriginValidator = func(url string) bool {
+			return r.MatchString(url)
+		}
 		return nil
 	}
 }
