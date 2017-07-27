@@ -239,7 +239,6 @@ func AllowedOriginValidator(fn OriginValidator) CORSOption {
 // 'Allow-Access-Control-Origin' HTTP header.
 func AllowedOriginRegexValidator(rgx string) CORSOption {
 	r := regexp.MustCompile(rgx)
-
 	return func(ch *cors) error {
 		ch.allowedOriginValidator = func(url string) bool {
 			return r.MatchString(url)
