@@ -270,6 +270,26 @@ func TestCORSHandlerAllowedCredentials(t *testing.T) {
 	}
 }
 
+func TestCORSHandlerAllowAllOriginsSetsVaryHeader(t *testing.T) {
+	r := newRequest("GET", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS(AllowedOrigins([]string{corsOriginMatchAll}))(testHandler).ServeHTTP(rr, r)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	}
+
+	header := rr.HeaderMap.Get(corsVaryHeader)
+	if header != corsOriginHeader {
+		t.Fatalf("bad header: expected %s to be %s, got %s.", corsVaryHeader, corsOriginHeader, header)
+	}
+}
+
 func TestCORSHandlerMultipleAllowOriginsSetsVaryHeader(t *testing.T) {
 	r := newRequest("GET", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
