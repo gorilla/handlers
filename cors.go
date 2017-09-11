@@ -48,7 +48,10 @@ const (
 func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get(corsOriginHeader)
 	if !ch.isOriginAllowed(origin) {
-		ch.h.ServeHTTP(w, r)
+		if r.Method != corsOptionMethod || ch.ignoreOptions {
+			ch.h.ServeHTTP(w, r)
+		}
+
 		return
 	}
 
