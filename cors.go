@@ -111,13 +111,17 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	returnOrigin := origin
-	for _, o := range ch.allowedOrigins {
-		// A configuration of * is different than explicitly setting an allowed
-		// origin. Returning arbitrary origin headers an an access control allow
-		// origin header is unsafe and is not required by any use case.
-		if o == corsOriginMatchAll {
-			returnOrigin = "*"
-			break
+	if ch.allowedOriginValidator == nil && len(ch.allowedOrigins) == 0 {
+		returnOrigin = "*"
+	} else {
+		for _, o := range ch.allowedOrigins {
+			// A configuration of * is different than explicitly setting an allowed
+			// origin. Returning arbitrary origin headers an an access control allow
+			// origin header is unsafe and is not required by any use case.
+			if o == corsOriginMatchAll {
+				returnOrigin = "*"
+				break
+			}
 		}
 	}
 	w.Header().Set(corsAllowOriginHeader, returnOrigin)
@@ -159,7 +163,7 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 	ch := &cors{
 		allowedMethods: defaultCorsMethods,
 		allowedHeaders: defaultCorsHeaders,
-		allowedOrigins: []string{corsOriginMatchAll},
+		allowedOrigins: []string{},
 	}
 
 	for _, option := range opts {
@@ -305,6 +309,10 @@ func (ch *cors) isOriginAllowed(origin string) bool {
 
 	if ch.allowedOriginValidator != nil {
 		return ch.allowedOriginValidator(origin)
+	}
+
+	if len(ch.allowedOrigins) == 0 {
+		return true
 	}
 
 	for _, allowedOrigin := range ch.allowedOrigins {
