@@ -62,6 +62,22 @@ type combinedLoggingHandler struct {
 	handler http.Handler
 }
 
+// callbackLoggingHandler is the http.Handler implementation for LoggingHandlerTo and its
+// friends
+type callbackLoggingHandler struct {
+	callback func(LogLine, *http.Request)
+	handler  http.Handler
+}
+
+// LogLine has the information collected by the LoggingHandlers
+type LogLine struct {
+	Req    *http.Request
+	Url    url.URL
+	Ts     time.Time
+	Status int
+	Size   int
+}
+
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	logger := makeLogger(w)
@@ -76,6 +92,20 @@ func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	url := *req.URL
 	h.handler.ServeHTTP(logger, req)
 	writeCombinedLog(h.writer, req, url, t, logger.Status(), logger.Size())
+}
+
+func (h callbackLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	t := time.Now()
+	logger := makeLogger(w)
+	url := *req.URL
+	h.handler.ServeHTTP(logger, req)
+	h.callback(LogLine{
+		Req:    req,
+		Url:    url,
+		Ts:     t,
+		Status: logger.Status(),
+		Size:   logger.Size(),
+	}, req)
 }
 
 func makeLogger(w http.ResponseWriter) loggingResponseWriter {
@@ -330,6 +360,24 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h}
+}
+
+// CallbackLoggingHandler gives the log information to a callback for further processing. The
+// callback has access to the request(and it's Context).
+//
+// Example:
+//
+//  r := mux.NewRouter()
+//  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+//  	w.Write([]byte("This is a catch-all route"))
+//  })
+//  loggedRouter := handlers.CalbackLoggingHandler(r, func(l handlers.LogLine, r *http.Request){
+//    fmt.Printf("%v was the answer!\n", l.Status)
+//})
+//  http.ListenAndServe(":1123", loggedRouter)
+//
+func CallbackLoggingHandler(h http.Handler, f func(LogLine, *http.Request)) http.Handler {
+	return callbackLoggingHandler{f, h}
 }
 
 // isContentType validates the Content-Type header matches the supplied
