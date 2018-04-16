@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 )
 
@@ -79,14 +80,14 @@ func TestProxyHeaders(t *testing.T) {
 	r.Header.Set(xForwardedProto, "https")
 	r.Header.Set(xForwardedHost, "google.com")
 	var (
-		addr  string
-		proto string
-		host  string
+		addr string
+		host string
+		url  *url.URL
 	)
 	ProxyHeaders(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			addr = r.RemoteAddr
-			proto = r.URL.Scheme
+			url = r.URL
 			host = r.Host
 		})).ServeHTTP(rr, r)
 
@@ -99,13 +100,18 @@ func TestProxyHeaders(t *testing.T) {
 			r.Header.Get(xForwardedFor))
 	}
 
-	if proto != r.Header.Get(xForwardedProto) {
-		t.Fatalf("wrong address: got %s want %s", proto,
-			r.Header.Get(xForwardedProto))
-	}
-	if host != r.Header.Get(xForwardedHost) {
+	if host := url.Host; host != r.Header.Get(xForwardedHost) {
 		t.Fatalf("wrong address: got %s want %s", host,
 			r.Header.Get(xForwardedHost))
 	}
 
+	if proto := url.Scheme; proto != r.Header.Get(xForwardedProto) {
+		t.Fatalf("wrong scheme: got %s want %s", proto,
+			r.Header.Get(xForwardedProto))
+	}
+
+	if host != r.Header.Get(xForwardedHost) {
+		t.Fatalf("wrong address: got %s want %s", host,
+			r.Header.Get(xForwardedHost))
+	}
 }
