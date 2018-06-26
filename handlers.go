@@ -241,6 +241,8 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 		if name := url.User.Username(); name != "" {
 			username = name
 		}
+	} else if name := req.Header.Get("X-Remote-User"); name != "" {
+		username = name
 	}
 
 	host, _, err := net.SplitHostPort(req.RemoteAddr)
