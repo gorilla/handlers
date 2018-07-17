@@ -119,7 +119,7 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		for _, o := range ch.allowedOrigins {
 			// A configuration of * is different than explicitly setting an allowed
-			// origin. Returning arbitrary origin headers an an access control allow
+			// origin. Returning arbitrary origin headers in an access control allow
 			// origin header is unsafe and is not required by any use case.
 			if o == corsOriginMatchAll {
 				returnOrigin = "*"
