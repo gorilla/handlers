@@ -96,7 +96,7 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(ch.maxAge))
 		}
 
-		if !ch.isMatch(method, defaultCorsMethods) {
+		if ch.isMatch(method, ch.allowedMethods) {
 			w.Header().Set(corsAllowMethodsHeader, method)
 		}
 	} else {
