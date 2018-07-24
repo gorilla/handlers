@@ -281,6 +281,26 @@ func TestLogPathRewrites(t *testing.T) {
 	}
 }
 
+func TestScrubbedLog(t *testing.T) {
+	var buf bytes.Buffer
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(200)
+	})
+	scrubbed, err := url.Parse("/otherdir")
+	if err != nil {
+		panic(err)
+	}
+
+	logger := ScrubbedLoggingHandler(&buf, handler, func(u url.URL) url.URL { return *scrubbed })
+
+	logger.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+
+	if !strings.Contains(buf.String(), "GET /otherdir HTTP") {
+		t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "GET /otherdir HTTP")
+	}
+}
+
 func BenchmarkWriteLog(b *testing.B) {
 	loc, err := time.LoadLocation("Europe/Warsaw")
 	if err != nil {
