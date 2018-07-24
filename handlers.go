@@ -51,21 +51,23 @@ func (h MethodHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // loggingHandler is the http.Handler implementation for LoggingHandlerTo and its
 // friends
 type loggingHandler struct {
-	writer  io.Writer
-	handler http.Handler
+	writer      io.Writer
+	handler     http.Handler
+	urlScrubber func(url.URL) url.URL
 }
 
 // combinedLoggingHandler is the http.Handler implementation for LoggingHandlerTo
 // and its friends
 type combinedLoggingHandler struct {
-	writer  io.Writer
-	handler http.Handler
+	writer      io.Writer
+	handler     http.Handler
+	urlScrubber func(url.URL) url.URL
 }
 
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	logger := makeLogger(w)
-	url := *req.URL
+	url := h.urlScrubber(*req.URL)
 	h.handler.ServeHTTP(logger, req)
 	writeLog(h.writer, req, url, t, logger.Status(), logger.Size())
 }
@@ -309,7 +311,12 @@ func writeCombinedLog(w io.Writer, req *http.Request, url url.URL, ts time.Time,
 //
 // LoggingHandler always sets the ident field of the log to -
 func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
-	return combinedLoggingHandler{out, h}
+	return combinedLoggingHandler{out, h, func(url url.URL) url.URL { return url }}
+}
+
+// Same as above but scrubs the URL using the provided function before logging it.
+func ScrubbedCombinedLoggingHandler(out io.Writer, h http.Handler, s func(url.URL) url.URL) http.Handler {
+	return combinedLoggingHandler{out, h, s}
 }
 
 // LoggingHandler return a http.Handler that wraps h and logs requests to out in
@@ -329,7 +336,12 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //  http.ListenAndServe(":1123", loggedRouter)
 //
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
-	return loggingHandler{out, h}
+	return loggingHandler{out, h, func(url url.URL) url.URL { return url }}
+}
+
+// Same as above but scrubs the URL using the provided function before logging it.
+func ScrubbedLoggingHandler(out io.Writer, h http.Handler, s func(url.URL) url.URL) http.Handler {
+	return loggingHandler{out, h, s}
 }
 
 // isContentType validates the Content-Type header matches the supplied
