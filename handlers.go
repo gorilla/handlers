@@ -49,7 +49,7 @@ func (h MethodHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // function signature for any log formatters
-type LogFormatter = func(w io.Writer, req *http.Request, url url.URL, ts time.Time, status, size int)
+type LogFormatter func(w io.Writer, req *http.Request, url url.URL, ts time.Time, status, size int)
 
 // loggingHandler is the http.Handler implementation for LoggingHandlerTo and its
 // friends
