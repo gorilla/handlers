@@ -48,18 +48,16 @@ func (h MethodHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// function signature for any log formatters
+type LogFormatter = func(w io.Writer, req *http.Request, url url.URL, ts time.Time, status, size int)
+
 // loggingHandler is the http.Handler implementation for LoggingHandlerTo and its
 // friends
-type loggingHandler struct {
-	writer  io.Writer
-	handler http.Handler
-}
 
-// combinedLoggingHandler is the http.Handler implementation for LoggingHandlerTo
-// and its friends
-type combinedLoggingHandler struct {
-	writer  io.Writer
+type loggingHandler struct {
+	writer io.Writer
 	handler http.Handler
+	formatter LogFormatter
 }
 
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -67,15 +65,7 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	logger := makeLogger(w)
 	url := *req.URL
 	h.handler.ServeHTTP(logger, req)
-	writeLog(h.writer, req, url, t, logger.Status(), logger.Size())
-}
-
-func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	t := time.Now()
-	logger := makeLogger(w)
-	url := *req.URL
-	h.handler.ServeHTTP(logger, req)
-	writeCombinedLog(h.writer, req, url, t, logger.Status(), logger.Size())
+	h.formatter(h.writer, req, url, t, logger.Status(), logger.Size())
 }
 
 func makeLogger(w http.ResponseWriter) loggingResponseWriter {
@@ -289,6 +279,7 @@ func writeLog(w io.Writer, req *http.Request, url url.URL, ts time.Time, status,
 	w.Write(buf)
 }
 
+
 // writeCombinedLog writes a log entry for req to w in Apache Combined Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
@@ -309,7 +300,7 @@ func writeCombinedLog(w io.Writer, req *http.Request, url url.URL, ts time.Time,
 //
 // LoggingHandler always sets the ident field of the log to -
 func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
-	return combinedLoggingHandler{out, h}
+	return loggingHandler{out, h, writeCombinedLog}
 }
 
 // LoggingHandler return a http.Handler that wraps h and logs requests to out in
@@ -329,7 +320,13 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //  http.ListenAndServe(":1123", loggedRouter)
 //
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
-	return loggingHandler{out, h}
+	return loggingHandler{out, h, writeLog}
+}
+
+// CustomLoggingHandler provides a way to supply a custom log formatter
+// while taking advantage of the mechanisms in this package
+func CustomLoggingHandler(out io.Writer, h http.Handler, f LogFormatter ) http.Handler {
+	return loggingHandler{out, h,f}
 }
 
 // isContentType validates the Content-Type header matches the supplied
