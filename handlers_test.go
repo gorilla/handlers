@@ -124,7 +124,7 @@ func BenchmarkWriteLog(b *testing.B) {
 
 	b.ResetTimer()
 
-	params := FormatterParams{
+	params := LogFormatterParams{
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
@@ -136,8 +136,7 @@ func BenchmarkWriteLog(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		params.Writer = buf
-		writeLog(params)
+		writeLog(buf,params)
 	}
 }
 
@@ -284,8 +283,7 @@ func LoggingScenario1(t *testing.T, formatter LogFormatter, expected string) {
 	req := constructTypicalRequestOk()
 
 	buf := new(bytes.Buffer)
-	params := FormatterParams{
-		Writer:     buf,
+	params := LogFormatterParams{
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
@@ -293,7 +291,7 @@ func LoggingScenario1(t *testing.T, formatter LogFormatter, expected string) {
 		Size:       100,
 	}
 
-	formatter(params)
+	formatter(buf,params)
 	log := buf.String()
 
 	if log != expected {
@@ -312,15 +310,14 @@ func LoggingScenario2(t *testing.T, formatter LogFormatter, expected string) {
 	req := constructConnectRequest()
 
 	buf := new(bytes.Buffer)
-	params := FormatterParams{
-		Writer:     buf,
+	params := LogFormatterParams{
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
 		StatusCode: http.StatusOK,
 		Size:       100,
 	}
-	formatter(params)
+	formatter(buf,params)
 	log := buf.String()
 
 	if log != expected {
@@ -340,15 +337,14 @@ func LoggingScenario3(t *testing.T, formatter LogFormatter, expected string) {
 	req.URL.User = url.User("kamil")
 
 	buf := new(bytes.Buffer)
-	params := FormatterParams{
-		Writer:     buf,
+	params := LogFormatterParams{
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
 		StatusCode: http.StatusUnauthorized,
 		Size:       500,
 	}
-	formatter(params)
+	formatter(buf,params)
 	log := buf.String()
 
 	if log != expected {
@@ -366,15 +362,14 @@ func LoggingScenario4(t *testing.T, formatter LogFormatter, expected string) {
 	req := constructEncodedRequest()
 
 	buf := new(bytes.Buffer)
-	params := FormatterParams{
-		Writer:     buf,
+	params := LogFormatterParams{
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
 		StatusCode: http.StatusOK,
 		Size:       100,
 	}
-	formatter(params)
+	formatter(buf,params)
 	log := buf.String()
 
 	if log != expected {
@@ -394,15 +389,14 @@ func LoggingScenario5(t *testing.T, formatter LogFormatter, expected string) {
 	req.RemoteAddr = "::1"
 
 	buf := new(bytes.Buffer)
-	params := FormatterParams{
-		Writer:     buf,
+	params := LogFormatterParams{
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
 		StatusCode: http.StatusOK,
 		Size:       100,
 	}
-	formatter(params)
+	formatter(buf,params)
 	log := buf.String()
 
 	if log != expected {

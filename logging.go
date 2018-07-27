@@ -17,8 +17,7 @@ import (
 // Logging
 
 // FormatterParams is the structure any formatter will be handed when time to log comes
-type FormatterParams struct {
-	Writer     io.Writer
+type LogFormatterParams struct {
 	Request    *http.Request
 	URL        url.URL
 	TimeStamp  time.Time
@@ -27,7 +26,7 @@ type FormatterParams struct {
 }
 
 // LogFormatter gives the signature of the formatter function passed to CustomLoggingHandler
-type LogFormatter func(params FormatterParams)
+type LogFormatter func(writer io.Writer, params LogFormatterParams)
 
 // loggingHandler is the http.Handler implementation for LoggingHandlerTo and its
 // friends
@@ -45,8 +44,7 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	h.handler.ServeHTTP(logger, req)
 
-	params := FormatterParams{
-		Writer:     h.writer,
+	params := LogFormatterParams{
 		Request:    req,
 		URL:        url,
 		TimeStamp:  t,
@@ -54,7 +52,7 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		Size:       logger.Size(),
 	}
 
-	h.formatter(params)
+	h.formatter(h.writer, params)
 }
 
 func makeLogger(w http.ResponseWriter) loggingResponseWriter {
@@ -198,23 +196,23 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 // writeLog writes a log entry for req to w in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeLog(params FormatterParams) {
+func writeLog(writer io.Writer, params LogFormatterParams) {
 	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size)
 	buf = append(buf, '\n')
-	params.Writer.Write(buf)
+	writer.Write(buf)
 }
 
 // writeCombinedLog writes a log entry for req to w in Apache Combined Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeCombinedLog(params FormatterParams) {
+func writeCombinedLog(writer io.Writer, params LogFormatterParams) {
 	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size)
 	buf = append(buf, ` "`...)
 	buf = appendQuoted(buf, params.Request.Referer())
 	buf = append(buf, `" "`...)
 	buf = appendQuoted(buf, params.Request.UserAgent())
 	buf = append(buf, '"', '\n')
-	params.Writer.Write(buf)
+	writer.Write(buf)
 }
 
 // CombinedLoggingHandler return a http.Handler that wraps h and logs requests to out in
