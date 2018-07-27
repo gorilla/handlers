@@ -78,7 +78,7 @@ func BenchmarkWriteLog(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		writeLog(buf,params)
+		writeLog(buf, params)
 	}
 }
 
@@ -156,7 +156,7 @@ func LoggingScenario1(t *testing.T, formatter LogFormatter, expected string) {
 		Size:       100,
 	}
 
-	formatter(buf,params)
+	formatter(buf, params)
 	log := buf.String()
 
 	if log != expected {
@@ -182,7 +182,7 @@ func LoggingScenario2(t *testing.T, formatter LogFormatter, expected string) {
 		StatusCode: http.StatusOK,
 		Size:       100,
 	}
-	formatter(buf,params)
+	formatter(buf, params)
 	log := buf.String()
 
 	if log != expected {
@@ -209,7 +209,7 @@ func LoggingScenario3(t *testing.T, formatter LogFormatter, expected string) {
 		StatusCode: http.StatusUnauthorized,
 		Size:       500,
 	}
-	formatter(buf,params)
+	formatter(buf, params)
 	log := buf.String()
 
 	if log != expected {
@@ -234,7 +234,7 @@ func LoggingScenario4(t *testing.T, formatter LogFormatter, expected string) {
 		StatusCode: http.StatusOK,
 		Size:       100,
 	}
-	formatter(buf,params)
+	formatter(buf, params)
 	log := buf.String()
 
 	if log != expected {
@@ -261,7 +261,7 @@ func LoggingScenario5(t *testing.T, formatter LogFormatter, expected string) {
 		StatusCode: http.StatusOK,
 		Size:       100,
 	}
-	formatter(buf,params)
+	formatter(buf, params)
 	log := buf.String()
 
 	if log != expected {
