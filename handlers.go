@@ -50,7 +50,7 @@ func (h MethodHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // Logging
 
-// params for LogFormatters
+// FormatterParams is the structure any formatter will be handed when time to log comes
 type FormatterParams struct {
 	Writer     io.Writer
 	Request    *http.Request
@@ -60,7 +60,7 @@ type FormatterParams struct {
 	Size       int
 }
 
-// function signature for any log formatters
+// LogFormatter gives the signature of the formatter function passed to CustomLoggingHandler
 type LogFormatter func(params FormatterParams)
 
 // loggingHandler is the http.Handler implementation for LoggingHandlerTo and its

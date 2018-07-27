@@ -285,7 +285,7 @@ func LoggingScenario1(t *testing.T, formatter LogFormatter, expected string) {
 
 	buf := new(bytes.Buffer)
 	params := FormatterParams{
-		Writer: buf,
+		Writer:     buf,
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
@@ -313,7 +313,7 @@ func LoggingScenario2(t *testing.T, formatter LogFormatter, expected string) {
 
 	buf := new(bytes.Buffer)
 	params := FormatterParams{
-		Writer: buf,
+		Writer:     buf,
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
@@ -341,7 +341,7 @@ func LoggingScenario3(t *testing.T, formatter LogFormatter, expected string) {
 
 	buf := new(bytes.Buffer)
 	params := FormatterParams{
-		Writer: buf,
+		Writer:     buf,
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
@@ -367,7 +367,7 @@ func LoggingScenario4(t *testing.T, formatter LogFormatter, expected string) {
 
 	buf := new(bytes.Buffer)
 	params := FormatterParams{
-		Writer: buf,
+		Writer:     buf,
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
@@ -395,7 +395,7 @@ func LoggingScenario5(t *testing.T, formatter LogFormatter, expected string) {
 
 	buf := new(bytes.Buffer)
 	params := FormatterParams{
-		Writer: buf,
+		Writer:     buf,
 		Request:    req,
 		URL:        *req.URL,
 		TimeStamp:  ts,
