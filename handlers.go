@@ -48,15 +48,27 @@ func (h MethodHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Logging
+
+// params for LogFormatters
+type FormatterParams struct {
+	Writer     io.Writer
+	Request    *http.Request
+	URL        url.URL
+	TimeStamp  time.Time
+	StatusCode int
+	Size       int
+}
+
 // function signature for any log formatters
-type LogFormatter func(w io.Writer, req *http.Request, url url.URL, ts time.Time, status, size int)
+type LogFormatter func(params FormatterParams)
 
 // loggingHandler is the http.Handler implementation for LoggingHandlerTo and its
 // friends
 
 type loggingHandler struct {
-	writer io.Writer
-	handler http.Handler
+	writer    io.Writer
+	handler   http.Handler
 	formatter LogFormatter
 }
 
@@ -64,8 +76,19 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	logger := makeLogger(w)
 	url := *req.URL
+
 	h.handler.ServeHTTP(logger, req)
-	h.formatter(h.writer, req, url, t, logger.Status(), logger.Size())
+
+	params := FormatterParams{
+		Writer:     h.writer,
+		Request:    req,
+		URL:        url,
+		TimeStamp:  t,
+		StatusCode: logger.Status(),
+		Size:       logger.Size(),
+	}
+
+	h.formatter(params)
 }
 
 func makeLogger(w http.ResponseWriter) loggingResponseWriter {
@@ -273,24 +296,23 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 // writeLog writes a log entry for req to w in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeLog(w io.Writer, req *http.Request, url url.URL, ts time.Time, status, size int) {
-	buf := buildCommonLogLine(req, url, ts, status, size)
+func writeLog(params FormatterParams) {
+	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size)
 	buf = append(buf, '\n')
-	w.Write(buf)
+	params.Writer.Write(buf)
 }
-
 
 // writeCombinedLog writes a log entry for req to w in Apache Combined Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeCombinedLog(w io.Writer, req *http.Request, url url.URL, ts time.Time, status, size int) {
-	buf := buildCommonLogLine(req, url, ts, status, size)
+func writeCombinedLog(params FormatterParams) {
+	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size)
 	buf = append(buf, ` "`...)
-	buf = appendQuoted(buf, req.Referer())
+	buf = appendQuoted(buf, params.Request.Referer())
 	buf = append(buf, `" "`...)
-	buf = appendQuoted(buf, req.UserAgent())
+	buf = appendQuoted(buf, params.Request.UserAgent())
 	buf = append(buf, '"', '\n')
-	w.Write(buf)
+	params.Writer.Write(buf)
 }
 
 // CombinedLoggingHandler return a http.Handler that wraps h and logs requests to out in
@@ -325,8 +347,8 @@ func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 
 // CustomLoggingHandler provides a way to supply a custom log formatter
 // while taking advantage of the mechanisms in this package
-func CustomLoggingHandler(out io.Writer, h http.Handler, f LogFormatter ) http.Handler {
-	return loggingHandler{out, h,f}
+func CustomLoggingHandler(out io.Writer, h http.Handler, f LogFormatter) http.Handler {
+	return loggingHandler{out, h, f}
 }
 
 // isContentType validates the Content-Type header matches the supplied

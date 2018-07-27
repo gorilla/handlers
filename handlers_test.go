@@ -6,7 +6,6 @@ package handlers
 
 import (
 	"bytes"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -97,174 +96,6 @@ func TestMakeLogger(t *testing.T) {
 	}
 }
 
-func TestWriteLog(t *testing.T) {
-	loc, err := time.LoadLocation("Europe/Warsaw")
-	if err != nil {
-		panic(err)
-	}
-	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
-
-	// A typical request with an OK response
-	req := newRequest("GET", "http://example.com")
-	req.RemoteAddr = "192.168.100.5"
-
-	buf := new(bytes.Buffer)
-	writeLog(buf, req, *req.URL, ts, http.StatusOK, 100)
-	log := buf.String()
-
-	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-
-	// CONNECT request over http/2.0
-	req = &http.Request{
-		Method:     "CONNECT",
-		Proto:      "HTTP/2.0",
-		ProtoMajor: 2,
-		ProtoMinor: 0,
-		URL:        &url.URL{Host: "www.example.com:443"},
-		Host:       "www.example.com:443",
-		RemoteAddr: "192.168.100.5",
-	}
-
-	buf = new(bytes.Buffer)
-	writeLog(buf, req, *req.URL, ts, http.StatusOK, 100)
-	log = buf.String()
-
-	expected = "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"CONNECT www.example.com:443 HTTP/2.0\" 200 100\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-
-	// Request with an unauthorized user
-	req = newRequest("GET", "http://example.com")
-	req.RemoteAddr = "192.168.100.5"
-	req.URL.User = url.User("kamil")
-
-	buf.Reset()
-	writeLog(buf, req, *req.URL, ts, http.StatusUnauthorized, 500)
-	log = buf.String()
-
-	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-
-	// Request with url encoded parameters
-	req = newRequest("GET", "http://example.com/test?abc=hello%20world&a=b%3F")
-	req.RemoteAddr = "192.168.100.5"
-
-	buf.Reset()
-	writeLog(buf, req, *req.URL, ts, http.StatusOK, 100)
-	log = buf.String()
-
-	expected = "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET /test?abc=hello%20world&a=b%3F HTTP/1.1\" 200 100\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-}
-
-func TestWriteCombinedLog(t *testing.T) {
-	loc, err := time.LoadLocation("Europe/Warsaw")
-	if err != nil {
-		panic(err)
-	}
-	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
-
-	// A typical request with an OK response
-	req := newRequest("GET", "http://example.com")
-	req.RemoteAddr = "192.168.100.5"
-	req.Header.Set("Referer", "http://example.com")
-	req.Header.Set(
-		"User-Agent",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/537.33 "+
-			"(KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33",
-	)
-
-	buf := new(bytes.Buffer)
-	writeCombinedLog(buf, req, *req.URL, ts, http.StatusOK, 100)
-	log := buf.String()
-
-	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
-		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
-		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-
-	// CONNECT request over http/2.0
-	req1 := &http.Request{
-		Method:     "CONNECT",
-		Host:       "www.example.com:443",
-		Proto:      "HTTP/2.0",
-		ProtoMajor: 2,
-		ProtoMinor: 0,
-		RemoteAddr: "192.168.100.5",
-		Header:     http.Header{},
-		URL:        &url.URL{Host: "www.example.com:443"},
-	}
-	req1.Header.Set("Referer", "http://example.com")
-	req1.Header.Set(
-		"User-Agent",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/537.33 "+
-			"(KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33",
-	)
-
-	buf = new(bytes.Buffer)
-	writeCombinedLog(buf, req1, *req1.URL, ts, http.StatusOK, 100)
-	log = buf.String()
-
-	expected = "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"CONNECT www.example.com:443 HTTP/2.0\" 200 100 \"http://example.com\" " +
-		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
-		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-
-	// Request with an unauthorized user
-	req.URL.User = url.User("kamil")
-
-	buf.Reset()
-	writeCombinedLog(buf, req, *req.URL, ts, http.StatusUnauthorized, 500)
-	log = buf.String()
-
-	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 \"http://example.com\" " +
-		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
-		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-
-	// Test with remote ipv6 address
-	req.RemoteAddr = "::1"
-
-	buf.Reset()
-	writeCombinedLog(buf, req, *req.URL, ts, http.StatusOK, 100)
-	log = buf.String()
-
-	expected = "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
-		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
-		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-
-	// Test remote ipv6 addr, with port
-	req.RemoteAddr = net.JoinHostPort("::1", "65000")
-
-	buf.Reset()
-	writeCombinedLog(buf, req, *req.URL, ts, http.StatusOK, 100)
-	log = buf.String()
-
-	expected = "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
-		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
-		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
-	if log != expected {
-		t.Fatalf("wrong log, got %q want %q", log, expected)
-	}
-}
-
 func TestLogPathRewrites(t *testing.T) {
 	var buf bytes.Buffer
 
@@ -293,10 +124,20 @@ func BenchmarkWriteLog(b *testing.B) {
 
 	b.ResetTimer()
 
+	params := FormatterParams{
+		Request:    req,
+		URL:        *req.URL,
+		TimeStamp:  ts,
+		StatusCode: http.StatusUnauthorized,
+		Size:       500,
+	}
+
 	buf := &bytes.Buffer{}
+
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		writeLog(buf, req, *req.URL, ts, http.StatusUnauthorized, 500)
+		params.Writer = buf
+		writeLog(params)
 	}
 }
 
@@ -375,4 +216,237 @@ func TestHTTPMethodOverride(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestLogFormatterWriteLog_Scenario1(t *testing.T) {
+	formatter := writeLog
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100\n"
+	LoggingScenario1(t, formatter, expected)
+}
+
+func TestLogFormatterCombinedLog_Scenario1(t *testing.T) {
+	formatter := writeCombinedLog
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	LoggingScenario1(t, formatter, expected)
+}
+
+func TestLogFormatterWriteLog_Scenario2(t *testing.T) {
+	formatter := writeLog
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"CONNECT www.example.com:443 HTTP/2.0\" 200 100\n"
+	LoggingScenario2(t, formatter, expected)
+}
+
+func TestLogFormatterCombinedLog_Scenario2(t *testing.T) {
+	formatter := writeCombinedLog
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"CONNECT www.example.com:443 HTTP/2.0\" 200 100 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	LoggingScenario2(t, formatter, expected)
+}
+
+func TestLogFormatterWriteLog_Scenario3(t *testing.T) {
+	formatter := writeLog
+	expected := "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500\n"
+	LoggingScenario3(t, formatter, expected)
+}
+
+func TestLogFormatterCombinedLog_Scenario3(t *testing.T) {
+	formatter := writeCombinedLog
+	expected := "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	LoggingScenario3(t, formatter, expected)
+}
+
+func TestLogFormatterWriteLog_Scenario4(t *testing.T) {
+	formatter := writeLog
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET /test?abc=hello%20world&a=b%3F HTTP/1.1\" 200 100\n"
+	LoggingScenario4(t, formatter, expected)
+}
+func TestLogFormatterCombinedLog_Scenario5(t *testing.T) {
+	formatter := writeCombinedLog
+	expected := "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	LoggingScenario5(t, formatter, expected)
+}
+
+func LoggingScenario1(t *testing.T, formatter LogFormatter, expected string) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		panic(err)
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	// A typical request with an OK response
+	req := constructTypicalRequestOk()
+
+	buf := new(bytes.Buffer)
+	params := FormatterParams{
+		Writer: buf,
+		Request:    req,
+		URL:        *req.URL,
+		TimeStamp:  ts,
+		StatusCode: http.StatusOK,
+		Size:       100,
+	}
+
+	formatter(params)
+	log := buf.String()
+
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+}
+
+func LoggingScenario2(t *testing.T, formatter LogFormatter, expected string) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		panic(err)
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	// CONNECT request over http/2.0
+	req := constructConnectRequest()
+
+	buf := new(bytes.Buffer)
+	params := FormatterParams{
+		Writer: buf,
+		Request:    req,
+		URL:        *req.URL,
+		TimeStamp:  ts,
+		StatusCode: http.StatusOK,
+		Size:       100,
+	}
+	formatter(params)
+	log := buf.String()
+
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+}
+
+func LoggingScenario3(t *testing.T, formatter LogFormatter, expected string) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		panic(err)
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	// Request with an unauthorized user
+	req := constructTypicalRequestOk()
+	req.URL.User = url.User("kamil")
+
+	buf := new(bytes.Buffer)
+	params := FormatterParams{
+		Writer: buf,
+		Request:    req,
+		URL:        *req.URL,
+		TimeStamp:  ts,
+		StatusCode: http.StatusUnauthorized,
+		Size:       500,
+	}
+	formatter(params)
+	log := buf.String()
+
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+}
+func LoggingScenario4(t *testing.T, formatter LogFormatter, expected string) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		panic(err)
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	// Request with url encoded parameters
+	req := constructEncodedRequest()
+
+	buf := new(bytes.Buffer)
+	params := FormatterParams{
+		Writer: buf,
+		Request:    req,
+		URL:        *req.URL,
+		TimeStamp:  ts,
+		StatusCode: http.StatusOK,
+		Size:       100,
+	}
+	formatter(params)
+	log := buf.String()
+
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+}
+
+func LoggingScenario5(t *testing.T, formatter LogFormatter, expected string) {
+	loc, err := time.LoadLocation("Europe/Warsaw")
+	if err != nil {
+		panic(err)
+	}
+	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+
+	req := constructTypicalRequestOk()
+	req.URL.User = url.User("kamil")
+	req.RemoteAddr = "::1"
+
+	buf := new(bytes.Buffer)
+	params := FormatterParams{
+		Writer: buf,
+		Request:    req,
+		URL:        *req.URL,
+		TimeStamp:  ts,
+		StatusCode: http.StatusOK,
+		Size:       100,
+	}
+	formatter(params)
+	log := buf.String()
+
+	if log != expected {
+		t.Fatalf("wrong log, got %q want %q", log, expected)
+	}
+}
+
+// A typical request with an OK response
+func constructTypicalRequestOk() *http.Request {
+	req := newRequest("GET", "http://example.com")
+	req.RemoteAddr = "192.168.100.5"
+	req.Header.Set("Referer", "http://example.com")
+	req.Header.Set(
+		"User-Agent",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/537.33 "+
+			"(KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33",
+	)
+	return req
+}
+
+// CONNECT request over http/2.0
+func constructConnectRequest() *http.Request {
+
+	req := &http.Request{
+		Method:     "CONNECT",
+		Host:       "www.example.com:443",
+		Proto:      "HTTP/2.0",
+		ProtoMajor: 2,
+		ProtoMinor: 0,
+		RemoteAddr: "192.168.100.5",
+		Header:     http.Header{},
+		URL:        &url.URL{Host: "www.example.com:443"},
+	}
+	req.Header.Set("Referer", "http://example.com")
+	req.Header.Set(
+		"User-Agent",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/537.33 "+
+			"(KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33",
+	)
+	return req
+}
+
+func constructEncodedRequest() *http.Request {
+	req := constructTypicalRequestOk()
+	req.URL, _ = url.Parse("http://example.com/test?abc=hello%20world&a=b%3F")
+	return req
 }
