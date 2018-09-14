@@ -122,6 +122,25 @@ func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandler(t *testing.T) {
 	}
 }
 
+func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWithCustomStatusCode(t *testing.T) {
+	statusCode := 204
+	r := newRequest("OPTIONS", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, "GET")
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("Options request must not be passed to next handler")
+	})
+
+	CORS(OptionStatusCode(statusCode))(testHandler).ServeHTTP(rr, r)
+
+	if status := rr.Code; status != statusCode {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	}
+}
+
 func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWhenOriginNotAllowed(t *testing.T) {
 	r := newRequest("OPTIONS", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
