@@ -12,6 +12,10 @@ import (
 	"strings"
 )
 
+const (
+	xGorillaHeaderPush = "X-Gorilla-Push"
+)
+
 type compressResponseWriter struct {
 	io.Writer
 	http.ResponseWriter
@@ -80,7 +84,11 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 			switch strings.TrimSpace(enc) {
 			case "gzip":
 				w.Header().Set("Content-Encoding", "gzip")
-				w.Header().Add("Vary", "Accept-Encoding")
+
+				// See https://github.com/gorilla/handlers/issues/139
+				if r.Header.Get(xGorillaHeaderPush) == "" { // not set when flag is present
+					w.Header().Add("Vary", "Accept-Encoding")
+				}
 
 				gw, _ := gzip.NewWriterLevel(w, level)
 				defer gw.Close()
