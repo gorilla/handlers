@@ -25,5 +25,8 @@ func (c *compressResponseWriter) Push(target string, opts *http.PushOptions) err
 	if !ok {
 		return fmt.Errorf("compressResponseWriter does not implement http.Pusher")
 	}
+
+	opts.Header.Add(xGorillaHeaderPush, "1") // make CompressHandler aware of Push request
+
 	return p.Push(target, opts)
 }
