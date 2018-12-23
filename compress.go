@@ -80,7 +80,7 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 			switch strings.TrimSpace(enc) {
 			case "gzip":
 				w.Header().Set("Content-Encoding", "gzip")
-				w.Header().Add("Vary", "Accept-Encoding")
+				//w.Header().Add("Vary", "Accept-Encoding") //see https://github.com/gorilla/handlers/issues/139
 
 				gw, _ := gzip.NewWriterLevel(w, level)
 				defer gw.Close()
@@ -111,7 +111,7 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 				break L
 			case "deflate":
 				w.Header().Set("Content-Encoding", "deflate")
-				w.Header().Add("Vary", "Accept-Encoding")
+				//w.Header().Add("Vary", "Accept-Encoding") //see https://github.com/gorilla/handlers/issues/139
 
 				fw, _ := flate.NewWriter(w, level)
 				defer fw.Close()
