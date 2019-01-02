@@ -42,19 +42,25 @@ var (
 // headers for validating the 'trustworthiness' of a request.
 func ProxyHeaders(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
+		// Only set protocol if the URL is absolute. If the URL is relative,
+		// as in the case of a StrictSlash redirect, do not set protocol.
+		if r.URL.IsAbs() {
+			// Set the scheme (proto) with the value passed from the proxy.
+			if scheme := getScheme(r); scheme != "" {
+				r.URL.Scheme = scheme
+			}
+		}
+
 		// Set the remote IP with the value passed from the proxy.
 		if fwd := getIP(r); fwd != "" {
 			r.RemoteAddr = fwd
 		}
 
-		// Set the scheme (proto) with the value passed from the proxy.
-		if scheme := getScheme(r); scheme != "" {
-			r.URL.Scheme = scheme
-		}
 		// Set the host with the value passed by the proxy
 		if r.Header.Get(xForwardedHost) != "" {
 			r.Host = r.Header.Get(xForwardedHost)
 		}
+
 		// Call the next handler in the chain.
 		h.ServeHTTP(w, r)
 	}

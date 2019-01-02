@@ -73,7 +73,7 @@ func TestGetScheme(t *testing.T) {
 // Test the middleware end-to-end
 func TestProxyHeaders(t *testing.T) {
 	rr := httptest.NewRecorder()
-	r := newRequest("GET", "/")
+	r := newRequest("GET", "http://localhost/")
 
 	r.Header.Set(xForwardedFor, "8.8.8.8")
 	r.Header.Set(xForwardedProto, "https")
@@ -108,4 +108,22 @@ func TestProxyHeaders(t *testing.T) {
 			r.Header.Get(xForwardedHost))
 	}
 
+}
+
+// Verify that relative URLs are not mangled
+func TestRelativeURL(t *testing.T) {
+	rr := httptest.NewRecorder()
+	r := newRequest("GET", "/relative-path")
+
+	r.Header.Set(xForwardedFor, "8.8.8.8")
+	r.Header.Set(xForwardedProto, "https")
+	r.Header.Set(xForwardedHost, "google.com")
+
+	ProxyHeaders(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+		})).ServeHTTP(rr, r)
+
+	if r.URL.IsAbs() {
+		t.Fatalf("Relative URL was mangled: %s", r.URL)
+	}
 }
