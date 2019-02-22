@@ -11,6 +11,7 @@ type CORSOption func(*cors) error
 
 type cors struct {
 	h                      http.Handler
+	allowAllHeaders        bool
 	allowedHeaders         []string
 	allowedMethods         []string
 	allowedOrigins         []string
@@ -27,13 +28,13 @@ type OriginValidator func(string) bool
 
 var (
 	defaultCorsOptionStatusCode = 200
-	defaultCorsMethods          = []string{"GET", "HEAD", "POST"}
+	defaultCorsMethods          = []string{http.MethodGet, http.MethodHead, http.MethodPost}
 	defaultCorsHeaders          = []string{"Accept", "Accept-Language", "Content-Language", "Origin"}
 	// (WebKit/Safari v9 sends the Origin header by default in AJAX requests)
 )
 
 const (
-	corsOptionMethod           string = "OPTIONS"
+	corsOptionMethod           string = http.MethodOptions
 	corsAllowOriginHeader      string = "Access-Control-Allow-Origin"
 	corsExposeHeadersHeader    string = "Access-Control-Expose-Headers"
 	corsMaxAgeHeader           string = "Access-Control-Max-Age"
@@ -45,6 +46,7 @@ const (
 	corsOriginHeader           string = "Origin"
 	corsVaryHeader             string = "Vary"
 	corsOriginMatchAll         string = "*"
+	corsHeadersMatchAll        string = "*"
 )
 
 func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -76,22 +78,29 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		requestHeaders := strings.Split(r.Header.Get(corsRequestHeadersHeader), ",")
 		allowedHeaders := []string{}
-		for _, v := range requestHeaders {
-			canonicalHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
-			if canonicalHeader == "" || ch.isMatch(canonicalHeader, defaultCorsHeaders) {
-				continue
-			}
+		if !ch.allowAllHeaders {
+			for _, v := range requestHeaders {
+				canonicalHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
 
-			if !ch.isMatch(canonicalHeader, ch.allowedHeaders) {
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
+				if canonicalHeader == "" || ch.isMatch(canonicalHeader, defaultCorsHeaders) {
+					continue
+				}
 
-			allowedHeaders = append(allowedHeaders, canonicalHeader)
+				if !ch.isMatch(canonicalHeader, ch.allowedHeaders) {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+
+				allowedHeaders = append(allowedHeaders, canonicalHeader)
+			}
 		}
 
-		if len(allowedHeaders) > 0 {
-			w.Header().Set(corsAllowHeadersHeader, strings.Join(allowedHeaders, ","))
+		if ch.allowAllHeaders {
+			w.Header().Set(corsAllowHeadersHeader, corsHeadersMatchAll)
+		} else {
+			if len(allowedHeaders) > 0 {
+				w.Header().Set(corsAllowHeadersHeader, strings.Join(allowedHeaders, ","))
+			}
 		}
 
 		if ch.maxAge > 0 {
@@ -198,6 +207,12 @@ func AllowedHeaders(headers []string) CORSOption {
 				continue
 			}
 
+			if normalizedHeader == corsHeadersMatchAll {
+				ch.allowedHeaders = []string{}
+				ch.allowAllHeaders = true
+				return nil
+			}
+
 			if !ch.isMatch(normalizedHeader, ch.allowedHeaders) {
 				ch.allowedHeaders = append(ch.allowedHeaders, normalizedHeader)
 			}
@@ -205,6 +220,14 @@ func AllowedHeaders(headers []string) CORSOption {
 
 		return nil
 	}
+}
+
+// AllowAllHeaders adds the provided headers to allow all headers in a
+// CORS request.
+// Short end for:
+// 	AllowedHeaders([]string{"*"})
+func AllowAllHeaders() CORSOption {
+	return AllowedHeaders([]string{corsHeadersMatchAll})
 }
 
 // AllowedMethods can be used to explicitly allow methods in the
@@ -229,6 +252,34 @@ func AllowedMethods(methods []string) CORSOption {
 	}
 }
 
+// AllowAllMethods can be used to explicitly allow all methods in the
+// Access-Control-Allow-Methods header.
+// Short end for:
+// 	AllowedMethods([]string{
+// 		http.MethodGet,
+// 		http.MethodHead,
+// 		http.MethodPost,
+// 		http.MethodPut,
+// 		http.MethodPatch,
+// 		http.MethodDelete,
+// 		http.MethodConnect,
+// 		http.MethodOptions,
+// 		http.MethodTrace,
+// 	})
+func AllowAllMethods() CORSOption {
+	return AllowedMethods([]string{
+		http.MethodGet,
+		http.MethodHead,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodDelete,
+		http.MethodConnect,
+		http.MethodOptions,
+		http.MethodTrace,
+	})
+}
+
 // AllowedOrigins sets the allowed origins for CORS requests, as used in the
 // 'Allow-Access-Control-Origin' HTTP header.
 // Note: Passing in a []string{"*"} will allow any domain.
@@ -244,6 +295,13 @@ func AllowedOrigins(origins []string) CORSOption {
 		ch.allowedOrigins = origins
 		return nil
 	}
+}
+
+// AllowAllOrigins sets the allowed origins for CORS requests to allow any domain.
+// Short end for:
+// 	AllowedOrigins([]string{corsOriginMatchAll})
+func AllowAllOrigins() CORSOption {
+	return AllowedOrigins([]string{corsOriginMatchAll})
 }
 
 // AllowedOriginValidator sets a function for evaluating allowed origins in CORS requests, represented by the
