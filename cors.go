@@ -73,6 +73,7 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		w.Header().Set(corsAllowMethodsHeader, method)
 
 		requestHeaders := strings.Split(r.Header.Get(corsRequestHeadersHeader), ",")
 		allowedHeaders := []string{}
@@ -96,10 +97,6 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if ch.maxAge > 0 {
 			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(ch.maxAge))
-		}
-
-		if !ch.isMatch(method, defaultCorsMethods) {
-			w.Header().Set(corsAllowMethodsHeader, method)
 		}
 	} else {
 		if len(ch.exposedHeaders) > 0 {
