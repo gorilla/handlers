@@ -6,7 +6,9 @@ package handlers
 
 import (
 	"bufio"
+	"compress/gzip"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -46,6 +48,78 @@ func TestCompressHandlerNoCompression(t *testing.T) {
 	}
 	if l := w.HeaderMap.Get("Content-Length"); l != "9216" {
 		t.Errorf("wrong content-length. got %q expected %d", l, 1024*9)
+	}
+}
+
+func plainResponder(t *testing.T, expected string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", contentType)
+		_, err := w.Write([]byte(expected))
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(expected)))
+	})
+}
+
+func gzipResponder(t *testing.T, expected string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Type", contentType)
+		gw := gzip.NewWriter(w)
+		_, err := gw.Write([]byte(expected))
+		if err != nil {
+			t.Fatal("failed to write response: ", err)
+		}
+		if err = gw.Close(); err != nil {
+			t.Fatal("failed to close gzip writer: ", err)
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(expected)))
+	})
+}
+
+func TestIfResponseIsGzippedTwice(t *testing.T) {
+	tCases := []struct {
+		name,
+		expected string
+		responder func(*testing.T, string) http.HandlerFunc
+	}{
+		{
+			name:      "plain-responder",
+			expected:  "this is a gzipped string",
+			responder: plainResponder,
+		},
+		{
+			name:      "gzip-responder",
+			expected:  "this is a gzipped string",
+			responder: gzipResponder,
+		},
+	}
+
+	for _, tCase := range tCases {
+		t.Run(tCase.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+
+			CompressHandler(tCase.responder(t, tCase.expected)).ServeHTTP(w, &http.Request{
+				Method: "GET",
+				Header: http.Header{
+					"Accept-Encoding": []string{"gzip"},
+				},
+			})
+
+			r, err := gzip.NewReader(w.Body)
+			if err != nil {
+				t.Fatal("failed to create gzip reader: ", err)
+			}
+			defer r.Close()
+			data, err := ioutil.ReadAll(r)
+			if err != nil {
+				t.Fatal("failed to read response: ", err)
+			}
+			if string(data) != tCase.expected {
+				t.Fatalf("expected %q but was %q", data, tCase.expected)
+			}
+		})
 	}
 }
 
