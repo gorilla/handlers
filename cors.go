@@ -19,6 +19,7 @@ type cors struct {
 	maxAge                 int
 	ignoreOptions          bool
 	allowCredentials       bool
+	allowFallthrough       bool
 	optionStatusCode       int
 }
 
@@ -131,7 +132,7 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set(corsAllowOriginHeader, returnOrigin)
 
-	if r.Method == corsOptionMethod {
+	if r.Method == corsOptionMethod && !ch.allowFallthrough {
 		w.WriteHeader(ch.optionStatusCode)
 		return
 	}
@@ -318,6 +319,15 @@ func IgnoreOptions() CORSOption {
 func AllowCredentials() CORSOption {
 	return func(ch *cors) error {
 		ch.allowCredentials = true
+		return nil
+	}
+}
+
+// AllowFallthrough can be used to make sure OPTION request calls the next
+// middleware. This is useful when you need to add custom headers in addition to CORS headers.
+func AllowFallthrough() CORSOption {
+	return func(ch *cors) error {
+		ch.allowFallthrough = true
 		return nil
 	}
 }

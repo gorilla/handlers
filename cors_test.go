@@ -408,3 +408,20 @@ func TestCORSAllowStar(t *testing.T) {
 		t.Fatalf("bad header: expected %s to be %s, got %s.", corsAllowOriginHeader, "*", header)
 	}
 }
+
+func TestCORSHandlerAllowFallthroughFallsThrough(t *testing.T) {
+	r := newRequest("OPTIONS", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, "GET")
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Custom-Header", "Custom-Value")
+	})
+
+	CORS(AllowFallthrough())(testHandler).ServeHTTP(rr, r)
+
+	if customHeader := rr.Header().Get("Custom-Header"); customHeader != "Custom-Value" {
+		t.Fatalf("bad header: got %v want %v", customHeader, "Custom-Value")
+	}
+}
