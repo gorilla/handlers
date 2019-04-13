@@ -71,14 +71,14 @@ func TestAcceptEncodingIsDropped(t *testing.T) {
 		{
 			"accept-encoding-gzip,deflate",
 			"gzip,deflate",
-			"deflate",
-			true,
+			"",
+			false,
 		},
 		{
 			"accept-encoding-gzip,deflate,something",
 			"gzip,deflate,something",
-			"deflate,something",
-			true,
+			"",
+			false,
 		},
 		{
 			"accept-encoding-unknown",
