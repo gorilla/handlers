@@ -89,29 +89,27 @@ func TestAcceptEncodingIsDropped(t *testing.T) {
 	}
 
 	for _, tCase := range tCases {
-		t.Run(tCase.name, func(t *testing.T) {
-			ch := CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				acceptEnc := r.Header.Get("Accept-Encoding")
-				if acceptEnc == "" && tCase.isPresent {
-					t.Fatal("expected 'Accept-Encoding' header to be present but was not")
+		ch := CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			acceptEnc := r.Header.Get("Accept-Encoding")
+			if acceptEnc == "" && tCase.isPresent {
+				t.Fatalf("%s: expected 'Accept-Encoding' header to be present but was not", tCase.name)
+			}
+			if acceptEnc != "" {
+				if !tCase.isPresent {
+					t.Fatalf("%s: expected 'Accept-Encoding' header to be dropped but was still present having value %q", tCase.name, acceptEnc)
 				}
-				if acceptEnc != "" {
-					if !tCase.isPresent {
-						t.Fatalf("expected 'Accept-Encoding' header to be dropped but was still present having value %q", acceptEnc)
-					}
-					if acceptEnc != tCase.expect {
-						t.Fatalf("expected 'Accept-Encoding' to be %q but was %q", tCase.expect, acceptEnc)
-					}
+				if acceptEnc != tCase.expect {
+					t.Fatalf("%s: expected 'Accept-Encoding' to be %q but was %q", tCase.name, tCase.expect, acceptEnc)
 				}
-			}))
+			}
+		}))
 
-			w := httptest.NewRecorder()
-			ch.ServeHTTP(w, &http.Request{
-				Method: "GET",
-				Header: http.Header{
-					"Accept-Encoding": []string{tCase.compression},
-				},
-			})
+		w := httptest.NewRecorder()
+		ch.ServeHTTP(w, &http.Request{
+			Method: "GET",
+			Header: http.Header{
+				"Accept-Encoding": []string{tCase.compression},
+			},
 		})
 	}
 }
