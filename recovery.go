@@ -69,7 +69,7 @@ func PrintRecoveryStack(print bool) RecoveryOption {
 
 func (h recoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer func() {
-		if err := recover(); err != nil {
+		if err := recover(); err != nil && err != http.ErrAbortHandler {
 			w.WriteHeader(http.StatusInternalServerError)
 			h.log(err)
 		}

@@ -42,3 +42,20 @@ func TestRecoveryLoggerWithCustomLogger(t *testing.T) {
 		t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "Unexpected error!")
 	}
 }
+
+func TestRecoveryLoggerSkipsHttpErrAbortHandler(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+
+	handler := RecoveryHandler()
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		panic(http.ErrAbortHandler)
+	})
+
+	recovery := handler(handlerFunc)
+	recovery.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+
+	if buf.String() != "" {
+		t.Fatalf("Got log %#v, wanted empty string", buf.String())
+	}
+}
