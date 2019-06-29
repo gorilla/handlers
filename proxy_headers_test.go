@@ -14,15 +14,15 @@ type headerTable struct {
 
 func TestGetIP(t *testing.T) {
 	headers := []headerTable{
-		{xForwardedFor, "8.8.8.8", "8.8.8.8"},                                         // Single address
-		{xForwardedFor, "8.8.8.8, 8.8.4.4", "8.8.8.8"},                                // Multiple
-		{xForwardedFor, "[2001:db8:cafe::17]:4711", "[2001:db8:cafe::17]:4711"},       // IPv6 address
-		{xForwardedFor, "", ""},                                                       // None
-		{xRealIP, "8.8.8.8", "8.8.8.8"},                                               // Single address
-		{xRealIP, "8.8.8.8, 8.8.4.4", "8.8.8.8, 8.8.4.4"},                             // Multiple
-		{xRealIP, "[2001:db8:cafe::17]:4711", "[2001:db8:cafe::17]:4711"},             // IPv6 address
-		{xRealIP, "", ""},                                                             // None
-		{forwarded, `for="_gazonk"`, "_gazonk"},                                       // Hostname
+		{xForwardedFor, "8.8.8.8", "8.8.8.8"},                                   // Single address
+		{xForwardedFor, "8.8.8.8, 8.8.4.4", "8.8.8.8"},                          // Multiple
+		{xForwardedFor, "[2001:db8:cafe::17]:4711", "[2001:db8:cafe::17]:4711"}, // IPv6 address
+		{xForwardedFor, "", ""},                                                 // None
+		{xRealIP, "8.8.8.8", "8.8.8.8"},                                         // Single address
+		{xRealIP, "8.8.8.8, 8.8.4.4", "8.8.8.8, 8.8.4.4"},                       // Multiple
+		{xRealIP, "[2001:db8:cafe::17]:4711", "[2001:db8:cafe::17]:4711"},       // IPv6 address
+		{xRealIP, "", ""},                       // None
+		{forwarded, `for="_gazonk"`, "_gazonk"}, // Hostname
 		{forwarded, `For="[2001:db8:cafe::17]:4711`, `[2001:db8:cafe::17]:4711`},      // IPv6 address
 		{forwarded, `for=192.0.2.60;proto=http;by=203.0.113.43`, `192.0.2.60`},        // Multiple params
 		{forwarded, `for=192.0.2.43, for=198.51.100.17`, "192.0.2.43"},                // Multiple params
