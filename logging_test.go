@@ -6,9 +6,16 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/base64"
+	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +42,72 @@ func TestMakeLogger(t *testing.T) {
 	logger.Header().Set("key", "value")
 	if val := logger.Header().Get("key"); val != "value" {
 		t.Fatalf("wrong header, got %s want %s", val, "value")
+	}
+}
+
+func TestLoggerCleanup(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
+	rbuf := make([]byte, 128)
+	if _, err := rand.Read(rbuf); err != nil {
+		t.Fatalf("Failed to generate random content: %v", err)
+	}
+	contents := base64.StdEncoding.EncodeToString(rbuf)
+
+	var body bytes.Buffer
+	body.WriteString(fmt.Sprintf(`
+--boundary
+Content-Disposition: form-data; name="buzz"; filename="example.txt"
+
+%s
+--boundary--
+`, contents))
+	r := multipart.NewReader(&body, "boundary")
+	form, err := r.ReadForm(0) // small max memory to force flush to disk
+	if err != nil {
+		t.Fatalf("Failed to read multipart form: %v", err)
+	}
+
+	tmpFiles, err := ioutil.ReadDir(os.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to list %s: %v", os.TempDir(), err)
+	}
+
+	var tmpFile string
+	for _, f := range tmpFiles {
+		if !strings.HasPrefix(f.Name(), "multipart-") {
+			continue
+		}
+
+		path := filepath.Join(os.TempDir(), f.Name())
+		switch b, err := ioutil.ReadFile(path); {
+		case err != nil:
+			t.Fatalf("Failed to read %s: %v", path, err)
+		case string(b) != contents:
+			continue
+		default:
+			tmpFile = path
+			break
+		}
+	}
+
+	if tmpFile == "" {
+		t.Fatal("Could not find multipart form tmp file")
+	}
+
+	req := newRequest("GET", "/subdir/asdf")
+	req.MultipartForm = form
+
+	var buf bytes.Buffer
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		req.URL.Path = "/" // simulate http.StripPrefix and friends
+		w.WriteHeader(200)
+	})
+	logger := LoggingHandler(&buf, handler)
+	logger.ServeHTTP(httptest.NewRecorder(), req)
+
+	if _, err := os.Stat(tmpFile); err == nil || !os.IsNotExist(err) {
+		t.Fatalf("Expected %s to not exist, got %v", tmpFile, err)
 	}
 }
 
