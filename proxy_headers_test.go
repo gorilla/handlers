@@ -70,6 +70,55 @@ func TestGetScheme(t *testing.T) {
 	}
 }
 
+func TestUpdateRequest(t *testing.T) {
+	tests := []struct {
+		providedFor        string
+		providedProto      string
+		providedHost       string
+		expectedRemoteAddr string
+		expectedScheme     string
+		expectedHost       string
+	}{
+		{"8.8.8.8", "", "", "8.8.8.8", "", ""},
+		{"", "https", "", "", "https", ""},
+		{"", "", "google.com", "", "", "google.com"},
+		{"8.8.8.8", "https", "", "8.8.8.8", "https", ""},
+		{"", "https", "google.com", "", "https", "google.com"},
+		{"8.8.8.8", "", "google.com", "8.8.8.8", "", "google.com"},
+		{"8.8.8.8", "https", "google.com", "8.8.8.8", "https", "google.com"},
+	}
+
+	for _, tt := range tests {
+		r := newRequest("GET", "/")
+		if tt.providedFor != "" {
+			r.Header.Set(xForwardedFor, tt.providedFor)
+		}
+		if tt.providedProto != "" {
+			r.Header.Set(xForwardedProto, tt.providedProto)
+		}
+		if tt.providedHost != "" {
+			r.Header.Set(xForwardedHost, tt.providedHost)
+		}
+
+		rr := updateRequest(r)
+
+		if rr.RemoteAddr != tt.expectedRemoteAddr {
+			t.Fatalf("wrong address: got %s want %s", rr.RemoteAddr,
+				tt.expectedRemoteAddr)
+		}
+
+		if rr.URL.Scheme != tt.expectedScheme {
+			t.Fatalf("wrong address: got %s want %s", rr.URL.Scheme,
+				tt.expectedScheme)
+		}
+
+		if rr.Host != tt.expectedHost {
+			t.Fatalf("wrong address: got %s want %s", rr.Host,
+				tt.expectedHost)
+		}
+	}
+}
+
 // Test the middleware end-to-end
 func TestProxyHeaders(t *testing.T) {
 	rr := httptest.NewRecorder()
@@ -108,4 +157,71 @@ func TestProxyHeaders(t *testing.T) {
 			r.Header.Get(xForwardedHost))
 	}
 
+}
+
+func TestProxyHeadersFromTrusted(t *testing.T) {
+	var (
+		addr  string
+		proto string
+		host  string
+	)
+
+	tests := []struct {
+		trusted      []string
+		source       string
+		expectChange bool
+	}{
+		{[]string{}, "1.2.3.4", false},
+		{[]string{"1.2.3.4"}, "1.2.3.4", true},
+	}
+	for _, tt := range tests {
+		rr := httptest.NewRecorder()
+		r := newRequest("GET", "/")
+
+		r.Header.Set(xForwardedFor, "8.8.8.8")
+		r.Header.Set(xForwardedProto, "https")
+		r.Header.Set(xForwardedHost, "google.com")
+		r.RemoteAddr = tt.source
+
+		ProxyHeadersFromTrusted(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				addr = r.RemoteAddr
+				proto = r.URL.Scheme
+				host = r.Host
+			}), tt.trusted).ServeHTTP(rr, r)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("bad status: got %d want %d", rr.Code, http.StatusOK)
+		}
+
+		if tt.expectChange {
+			if addr != r.Header.Get(xForwardedFor) {
+				t.Fatalf("wrong address: got %s want %s", addr,
+					r.Header.Get(xForwardedFor))
+			}
+
+			if proto != r.Header.Get(xForwardedProto) {
+				t.Fatalf("wrong address: got %s want %s", proto,
+					r.Header.Get(xForwardedProto))
+			}
+			if host != r.Header.Get(xForwardedHost) {
+				t.Fatalf("wrong address: got %s want %s", host,
+					r.Header.Get(xForwardedHost))
+			}
+		} else {
+			if addr == r.Header.Get(xForwardedFor) {
+				t.Fatalf("wrong address: got %s want %s", addr,
+					r.Header.Get(xForwardedFor))
+			}
+
+			if proto == r.Header.Get(xForwardedProto) {
+				t.Fatalf("wrong address: got %s want %s", proto,
+					r.Header.Get(xForwardedProto))
+			}
+			if host == r.Header.Get(xForwardedHost) {
+				t.Fatalf("wrong address: got %s want %s", host,
+					r.Header.Get(xForwardedHost))
+			}
+		}
+	}
 }

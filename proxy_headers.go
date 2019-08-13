@@ -42,24 +42,55 @@ var (
 // headers for validating the 'trustworthiness' of a request.
 func ProxyHeaders(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		// Set the remote IP with the value passed from the proxy.
-		if fwd := getIP(r); fwd != "" {
-			r.RemoteAddr = fwd
-		}
+		// Update the request.
+		r = updateRequest(r)
+		// Call the next handler in the chain.
+		h.ServeHTTP(w, r)
+	}
 
-		// Set the scheme (proto) with the value passed from the proxy.
-		if scheme := getScheme(r); scheme != "" {
-			r.URL.Scheme = scheme
-		}
-		// Set the host with the value passed by the proxy
-		if r.Header.Get(xForwardedHost) != "" {
-			r.Host = r.Header.Get(xForwardedHost)
+	return http.HandlerFunc(fn)
+}
+
+// ProxyHeadersFromTrusted performs the same inspection and set process as
+// the ProxyHeaders handler however only if the RemoteAddr is from a trusted
+// source
+func ProxyHeadersFromTrusted(h http.Handler, trusted []string) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		// Check trusted list
+		for _, t := range trusted {
+			if r.RemoteAddr == t {
+				// Update the request.
+				r = updateRequest(r)
+
+				// Finish the loop
+				break
+			}
 		}
 		// Call the next handler in the chain.
 		h.ServeHTTP(w, r)
 	}
 
 	return http.HandlerFunc(fn)
+}
+
+// updateRequest changes RemoteAddr, Scheme and/or Host values of the passed
+// *http.Request and returns and updated *http.Request object
+func updateRequest(r *http.Request) *http.Request {
+	// Set the remote IP with the value passed from the proxy.
+	if fwd := getIP(r); fwd != "" {
+		r.RemoteAddr = fwd
+	}
+
+	// Set the scheme (proto) with the value passed from the proxy.
+	if scheme := getScheme(r); scheme != "" {
+		r.URL.Scheme = scheme
+	}
+	// Set the host with the value passed by the proxy
+	if r.Header.Get(xForwardedHost) != "" {
+		r.Host = r.Header.Get(xForwardedHost)
+	}
+
+	return r
 }
 
 // getIP retrieves the IP from the X-Forwarded-For, X-Real-IP and RFC7239
