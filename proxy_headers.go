@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -56,14 +57,17 @@ func ProxyHeaders(h http.Handler) http.Handler {
 // source
 func ProxyHeadersFromTrusted(h http.Handler, trusted []string) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		// Check trusted list
-		for _, t := range trusted {
-			if r.RemoteAddr == t {
-				// Update the request.
-				r = updateRequest(r)
+		// Get source ip from r.RemoteAddr
+		if src, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+			// Loop through list of trusted sources
+			for _, t := range trusted {
+				if src == t {
+					// Update the request.
+					r = updateRequest(r)
 
-				// Finish the loop
-				break
+					// Finish the loop
+					break
+				}
 			}
 		}
 		// Call the next handler in the chain.

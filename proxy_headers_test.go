@@ -171,11 +171,11 @@ func TestProxyHeadersFromTrusted(t *testing.T) {
 		source       string
 		expectChange bool
 	}{
-		{[]string{}, "1.2.3.4", false},
-		{[]string{"8.8.8.8"}, "1.2.3.4", false},
-		{[]string{"1.2.3.4"}, "1.2.3.4", true},
-		{[]string{"8.8.8.8", "1.2.3.4"}, "1.2.3.4", true},
-		{[]string{"1.2.3.4", "8.8.8.8"}, "1.2.3.4", true},
+		{[]string{}, "1.2.3.4:8000", false},
+		{[]string{"8.8.8.8"}, "1.2.3.4:8000", false},
+		{[]string{"1.2.3.4"}, "1.2.3.4:8000", true},
+		{[]string{"8.8.8.8", "1.2.3.4"}, "1.2.3.4:8000", true},
+		{[]string{"1.2.3.4", "8.8.8.8"}, "1.2.3.4:8000", true},
 	}
 	for _, tt := range tests {
 		rr := httptest.NewRecorder()
