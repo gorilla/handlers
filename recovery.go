@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"os"
 	"runtime/debug"
 )
 
@@ -19,7 +20,7 @@ type recoveryHandler struct {
 
 // RecoveryOption provides a functional approach to define
 // configuration for a handler; such as setting the logging
-// whether or not to print strack traces on panic.
+// whether or not to print stack traces on panic.
 type RecoveryOption func(http.Handler)
 
 func parseRecoveryOptions(h http.Handler, opts ...RecoveryOption) http.Handler {
@@ -86,6 +87,11 @@ func (h recoveryHandler) log(v ...interface{}) {
 	}
 
 	if h.printStack {
-		debug.PrintStack()
+		stack := debug.Stack()
+		if h.logger != nil {
+			h.logger.Println(string(stack))
+		} else {
+			_, _ = os.Stderr.Write(stack)
+		}
 	}
 }
