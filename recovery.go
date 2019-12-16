@@ -3,7 +3,6 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"os"
 	"runtime/debug"
 )
 
@@ -87,11 +86,11 @@ func (h recoveryHandler) log(v ...interface{}) {
 	}
 
 	if h.printStack {
-		stack := debug.Stack()
+		stack := string(debug.Stack())
 		if h.logger != nil {
-			h.logger.Println(string(stack))
+			h.logger.Println(stack)
 		} else {
-			_, _ = os.Stderr.Write(stack)
+			log.Println(stack)
 		}
 	}
 }
