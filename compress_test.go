@@ -47,6 +47,9 @@ func TestCompressHandlerNoCompression(t *testing.T) {
 	if l := w.HeaderMap.Get("Content-Length"); l != "9216" {
 		t.Errorf("wrong content-length. got %q expected %d", l, 1024*9)
 	}
+	if v := w.HeaderMap.Get("Vary"); v != "Accept-Encoding" {
+		t.Errorf("wrong vary. got %s expected %s", v, "Accept-Encoding")
+	}
 }
 
 func TestAcceptEncodingIsDropped(t *testing.T) {

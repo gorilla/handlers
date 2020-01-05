@@ -90,6 +90,9 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 			}
 		}
 
+		// always add Accept-Encoding to Vary to prevent intermediate caches corruption
+		w.Header().Add("Vary", "Accept-Encoding")
+
 		// if we weren't able to identify an encoding we're familiar with, pass on the
 		// request to the handler and return
 		if encoding == "" {
@@ -108,7 +111,6 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 
 		w.Header().Set("Content-Encoding", encoding)
 		r.Header.Del("Accept-Encoding")
-		w.Header().Add("Vary", "Accept-Encoding")
 
 		hijacker, ok := w.(http.Hijacker)
 		if !ok { /* w is not Hijacker... oh well... */
