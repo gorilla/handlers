@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+const acceptEncoding string = "Accept-Encoding"
+
 type compressResponseWriter struct {
 	io.Writer
 	http.ResponseWriter
@@ -82,7 +84,7 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// detect what encoding to use
 		var encoding string
-		for _, curEnc := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+		for _, curEnc := range strings.Split(r.Header.Get(acceptEncoding), ",") {
 			curEnc = strings.TrimSpace(curEnc)
 			if curEnc == gzipEncoding || curEnc == flateEncoding {
 				encoding = curEnc
@@ -91,7 +93,7 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 		}
 
 		// always add Accept-Encoding to Vary to prevent intermediate caches corruption
-		w.Header().Add("Vary", "Accept-Encoding")
+		w.Header().Add("Vary", acceptEncoding)
 
 		// if we weren't able to identify an encoding we're familiar with, pass on the
 		// request to the handler and return
@@ -110,7 +112,7 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 		defer encWriter.Close()
 
 		w.Header().Set("Content-Encoding", encoding)
-		r.Header.Del("Accept-Encoding")
+		r.Header.Del(acceptEncoding)
 
 		hijacker, ok := w.(http.Hijacker)
 		if !ok { /* w is not Hijacker... oh well... */
