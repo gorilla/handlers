@@ -26,7 +26,7 @@ func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 	})).ServeHTTP(w, &http.Request{
 		Method: "GET",
 		Header: http.Header{
-			"Accept-Encoding": []string{compression},
+			acceptEncoding: []string{compression},
 		},
 	})
 
@@ -46,6 +46,9 @@ func TestCompressHandlerNoCompression(t *testing.T) {
 	}
 	if l := w.HeaderMap.Get("Content-Length"); l != "9216" {
 		t.Errorf("wrong content-length. got %q expected %d", l, 1024*9)
+	}
+	if v := w.HeaderMap.Get("Vary"); v != acceptEncoding {
+		t.Errorf("wrong vary. got %s expected %s", v, acceptEncoding)
 	}
 }
 
@@ -90,7 +93,7 @@ func TestAcceptEncodingIsDropped(t *testing.T) {
 
 	for _, tCase := range tCases {
 		ch := CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			acceptEnc := r.Header.Get("Accept-Encoding")
+			acceptEnc := r.Header.Get(acceptEncoding)
 			if acceptEnc == "" && tCase.isPresent {
 				t.Fatalf("%s: expected 'Accept-Encoding' header to be present but was not", tCase.name)
 			}
@@ -108,7 +111,7 @@ func TestAcceptEncodingIsDropped(t *testing.T) {
 		ch.ServeHTTP(w, &http.Request{
 			Method: "GET",
 			Header: http.Header{
-				"Accept-Encoding": []string{tCase.compression},
+				acceptEncoding: []string{tCase.compression},
 			},
 		})
 	}
@@ -189,7 +192,7 @@ func TestCompressHandlerPreserveInterfaces(t *testing.T) {
 		_ http.Hijacker      = fullyFeaturedResponseWriter{}
 	)
 	var h http.Handler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		comp := r.Header.Get("Accept-Encoding")
+		comp := r.Header.Get(acceptEncoding)
 		if _, ok := rw.(*compressResponseWriter); !ok {
 			t.Fatalf("ResponseWriter wasn't wrapped by compressResponseWriter, got %T type", rw)
 		}
@@ -211,9 +214,9 @@ func TestCompressHandlerPreserveInterfaces(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test request: %v", err)
 	}
-	r.Header.Set("Accept-Encoding", "gzip")
+	r.Header.Set(acceptEncoding, "gzip")
 	h.ServeHTTP(rw, r)
 
-	r.Header.Set("Accept-Encoding", "deflate")
+	r.Header.Set(acceptEncoding, "deflate")
 	h.ServeHTTP(rw, r)
 }
