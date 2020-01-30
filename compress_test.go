@@ -16,10 +16,11 @@ import (
 
 var contentType = "text/plain; charset=utf-8"
 
-func compressedRequest(w *httptest.ResponseRecorder, compression string) {
+func compressedRequest(w *httptest.ResponseRecorder, compression string, code int) {
 	CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", strconv.Itoa(9*1024))
 		w.Header().Set("Content-Type", contentType)
+		w.WriteHeader(code)
 		for i := 0; i < 1024; i++ {
 			io.WriteString(w, "Gorilla!\n")
 		}
@@ -34,8 +35,8 @@ func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 
 func TestCompressHandlerNoCompression(t *testing.T) {
 	w := httptest.NewRecorder()
-	compressedRequest(w, "")
-	if enc := w.HeaderMap.Get("Content-Encoding"); enc != "" {
+	compressedRequest(w, "", http.StatusOK)
+	if enc := w.HeaderMap.Get(contentEncoding); enc != "" {
 		t.Errorf("wrong content encoding, got %q want %q", enc, "")
 	}
 	if ct := w.HeaderMap.Get("Content-Type"); ct != contentType {
@@ -119,9 +120,9 @@ func TestAcceptEncodingIsDropped(t *testing.T) {
 
 func TestCompressHandlerGzip(t *testing.T) {
 	w := httptest.NewRecorder()
-	compressedRequest(w, "gzip")
-	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
-		t.Errorf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "gzip")
+	compressedRequest(w, "gzip", http.StatusOK)
+	if w.HeaderMap.Get(contentEncoding) != "gzip" {
+		t.Errorf("wrong content encoding, got %q want %q", w.HeaderMap.Get(contentEncoding), "gzip")
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Errorf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
@@ -136,9 +137,9 @@ func TestCompressHandlerGzip(t *testing.T) {
 
 func TestCompressHandlerDeflate(t *testing.T) {
 	w := httptest.NewRecorder()
-	compressedRequest(w, "deflate")
-	if w.HeaderMap.Get("Content-Encoding") != "deflate" {
-		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "deflate")
+	compressedRequest(w, "deflate", http.StatusOK)
+	if w.HeaderMap.Get(contentEncoding) != "deflate" {
+		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get(contentEncoding), "deflate")
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
@@ -150,12 +151,28 @@ func TestCompressHandlerDeflate(t *testing.T) {
 
 func TestCompressHandlerGzipDeflate(t *testing.T) {
 	w := httptest.NewRecorder()
-	compressedRequest(w, "gzip, deflate ")
-	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
-		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "gzip")
+	compressedRequest(w, "gzip, deflate ", http.StatusOK)
+	if w.HeaderMap.Get(contentEncoding) != "gzip" {
+		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get(contentEncoding), "gzip")
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
+	}
+}
+
+func TestCompressHandlerHTTPNoContent(t *testing.T) {
+	w := httptest.NewRecorder()
+	compressedRequest(w, "gzip", http.StatusNoContent)
+	if w.HeaderMap.Get(contentEncoding) != "" {
+		t.Fatalf("unexpected content encoding, got %q want none", w.HeaderMap.Get(contentEncoding))
+	}
+}
+
+func TestCompressHandlerHTTPNotModified(t *testing.T) {
+	w := httptest.NewRecorder()
+	compressedRequest(w, "deflate", http.StatusNotModified)
+	if w.HeaderMap.Get(contentEncoding) != "" {
+		t.Fatalf("unexpected content encoding, got %q want none", w.HeaderMap.Get(contentEncoding))
 	}
 }
 

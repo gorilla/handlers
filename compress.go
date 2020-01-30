@@ -12,7 +12,10 @@ import (
 	"strings"
 )
 
-const acceptEncoding string = "Accept-Encoding"
+const (
+	acceptEncoding  string = "Accept-Encoding"
+	contentEncoding string = "Content-Encoding"
+)
 
 type compressResponseWriter struct {
 	io.Writer
@@ -23,7 +26,14 @@ type compressResponseWriter struct {
 }
 
 func (w *compressResponseWriter) WriteHeader(c int) {
-	w.ResponseWriter.Header().Del("Content-Length")
+	h := w.ResponseWriter.Header()
+
+	// Some HTTP clients will error if the Content-Encoding is set when responding with a 204 or 304.
+	if c == http.StatusNoContent || c == http.StatusNotModified {
+		h.Del(contentEncoding)
+	}
+
+	h.Del("Content-Length")
 	w.ResponseWriter.WriteHeader(c)
 }
 
@@ -111,7 +121,7 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 		}
 		defer encWriter.Close()
 
-		w.Header().Set("Content-Encoding", encoding)
+		w.Header().Set(contentEncoding, encoding)
 		r.Header.Del(acceptEncoding)
 
 		hijacker, ok := w.(http.Hijacker)
