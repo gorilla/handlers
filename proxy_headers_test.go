@@ -79,15 +79,17 @@ func TestProxyHeaders(t *testing.T) {
 	r.Header.Set(xForwardedProto, "https")
 	r.Header.Set(xForwardedHost, "google.com")
 	var (
-		addr  string
-		proto string
-		host  string
+		addr    string
+		proto   string
+		host    string
+		URLhost string
 	)
 	ProxyHeaders(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			addr = r.RemoteAddr
 			proto = r.URL.Scheme
 			host = r.Host
+			URLhost = r.URL.Host
 		})).ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusOK {
@@ -107,5 +109,8 @@ func TestProxyHeaders(t *testing.T) {
 		t.Fatalf("wrong address: got %s want %s", host,
 			r.Header.Get(xForwardedHost))
 	}
-
+	if URLhost != r.Header.Get(xForwardedHost) {
+		t.Fatalf("wrong address: got %s want %s", URLhost,
+			r.Header.Get(xForwardedHost))
+	}
 }
