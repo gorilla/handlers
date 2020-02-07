@@ -54,6 +54,7 @@ func ProxyHeaders(h http.Handler) http.Handler {
 		// Set the host with the value passed by the proxy
 		if r.Header.Get(xForwardedHost) != "" {
 			r.Host = r.Header.Get(xForwardedHost)
+			r.URL.Host = r.Host
 		}
 		// Call the next handler in the chain.
 		h.ServeHTTP(w, r)
