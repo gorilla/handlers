@@ -249,6 +249,28 @@ func TestCORSHandlerAllowedHeaderForPreflight(t *testing.T) {
 	}
 }
 
+func TestCORSHandlerAllowedWildcardHeaderForPreflight(t *testing.T) {
+	r := newRequest("OPTIONS", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, "POST")
+	r.Header.Set(corsRequestHeadersHeader, "X-CORS-TEST")
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS(AllowedHeaders([]string{"*"}))(testHandler).ServeHTTP(rr, r)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	}
+
+	header := rr.HeaderMap.Get(corsAllowHeadersHeader)
+	if header != "X-Cors-Test" {
+		t.Fatalf("bad header: expected X-Cors-Test header, got %s.", header)
+	}
+}
+
 func TestCORSHandlerInvalidHeaderForPreflightForbidden(t *testing.T) {
 	r := newRequest("OPTIONS", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
