@@ -15,8 +15,8 @@ func TestDefaultCORSHandlerReturnsOk(t *testing.T) {
 
 	CORS()(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusFound)
+	if got, want := rr.Code, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
@@ -30,8 +30,8 @@ func TestDefaultCORSHandlerReturnsOkWithOrigin(t *testing.T) {
 
 	CORS()(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusFound)
+	if got, want := rr.Code, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
@@ -47,8 +47,8 @@ func TestCORSHandlerIgnoreOptionsFallsThrough(t *testing.T) {
 
 	CORS(IgnoreOptions())(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusTeapot {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusTeapot)
+	if got, want := rr.Code, http.StatusTeapot; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
@@ -63,13 +63,13 @@ func TestCORSHandlerSetsExposedHeaders(t *testing.T) {
 
 	CORS(ExposedHeaders([]string{"X-CORS-TEST"}))(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	if got, want := rr.Code, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 
 	header := rr.HeaderMap.Get(corsExposeHeadersHeader)
-	if header != "X-Cors-Test" {
-		t.Fatal("bad header: expected X-Cors-Test header, got empty header for method.")
+	if got, want := header, "X-Cors-Test"; got != want {
+		t.Fatalf("bad header: expected %q header, got empty header for method.", want)
 	}
 }
 
@@ -83,8 +83,8 @@ func TestCORSHandlerUnsetRequestMethodForPreflightBadRequest(t *testing.T) {
 
 	CORS(AllowedMethods([]string{"DELETE"}))(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusBadRequest {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusBadRequest)
+	if got, want := rr.Code, http.StatusBadRequest; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
@@ -99,8 +99,8 @@ func TestCORSHandlerInvalidRequestMethodForPreflightMethodNotAllowed(t *testing.
 
 	CORS()(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusMethodNotAllowed {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusMethodNotAllowed)
+	if got, want := rr.Code, http.StatusMethodNotAllowed; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
@@ -117,13 +117,13 @@ func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandler(t *testing.T) {
 
 	CORS()(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	if got, want := rr.Code, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
 func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWithCustomStatusCode(t *testing.T) {
-	statusCode := 204
+	statusCode := http.StatusNoContent
 	r := newRequest("OPTIONS", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, "GET")
@@ -136,8 +136,8 @@ func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWithCustomStatusCo
 
 	CORS(OptionStatusCode(statusCode))(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != statusCode {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	if got, want := rr.Code, statusCode; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
@@ -154,8 +154,8 @@ func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWhenOriginNotAllow
 
 	CORS(AllowedOrigins([]string{}))(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	if got, want := rr.Code, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
@@ -170,13 +170,13 @@ func TestCORSHandlerAllowedMethodForPreflight(t *testing.T) {
 
 	CORS(AllowedMethods([]string{"DELETE"}))(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	if got, want := rr.Code, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 
 	header := rr.HeaderMap.Get(corsAllowMethodsHeader)
-	if header != "DELETE" {
-		t.Fatalf("bad header: expected DELETE method header, got empty header.")
+	if got, want := header, "DELETE"; got != want {
+		t.Fatalf("bad header: expected %q method header, got %q header.", want, got)
 	}
 }
 
@@ -192,13 +192,13 @@ func TestCORSHandlerAllowMethodsNotSetForSimpleRequestPreflight(t *testing.T) {
 
 		CORS()(testHandler).ServeHTTP(rr, r)
 
-		if status := rr.Code; status != http.StatusOK {
-			t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+		if got, want := rr.Code, http.StatusOK; got != want {
+			t.Fatalf("bad status: got %v want %v", got, want)
 		}
 
 		header := rr.HeaderMap.Get(corsAllowMethodsHeader)
-		if header != "" {
-			t.Fatalf("bad header: expected empty method header, got %s.", header)
+		if got, want := header, ""; got != want {
+			t.Fatalf("bad header: expected %q method header, got %q.", want, got)
 		}
 	}
 }
@@ -216,13 +216,13 @@ func TestCORSHandlerAllowedHeaderNotSetForSimpleRequestPreflight(t *testing.T) {
 
 		CORS()(testHandler).ServeHTTP(rr, r)
 
-		if status := rr.Code; status != http.StatusOK {
-			t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+		if got, want := rr.Code, http.StatusOK; got != want {
+			t.Fatalf("bad status: got %v want %v", got, want)
 		}
 
 		header := rr.HeaderMap.Get(corsAllowHeadersHeader)
-		if header != "" {
-			t.Fatalf("bad header: expected empty header, got %s.", header)
+		if got, want := header, ""; got != want {
+			t.Fatalf("bad header: expected %q header, got %q.", want, got)
 		}
 	}
 }
@@ -239,13 +239,13 @@ func TestCORSHandlerAllowedHeaderForPreflight(t *testing.T) {
 
 	CORS(AllowedHeaders([]string{"Content-Type"}))(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	if got, want := rr.Code, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 
 	header := rr.HeaderMap.Get(corsAllowHeadersHeader)
-	if header != "Content-Type" {
-		t.Fatalf("bad header: expected Content-Type header, got empty header.")
+	if got, want := header, "Content-Type"; got != want {
+		t.Fatalf("bad header: expected %q header, got %q header.", want, got)
 	}
 }
 
@@ -261,8 +261,8 @@ func TestCORSHandlerInvalidHeaderForPreflightForbidden(t *testing.T) {
 
 	CORS()(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusForbidden {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusForbidden)
+	if got, want := rr.Code, http.StatusForbidden; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 }
 
@@ -277,13 +277,13 @@ func TestCORSHandlerMaxAgeForPreflight(t *testing.T) {
 
 	CORS(MaxAge(3500))(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	if got, want := rr.Code, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
 	}
 
 	header := rr.HeaderMap.Get(corsMaxAgeHeader)
-	if header != "600" {
-		t.Fatalf("bad header: expected %s to be %s, got %s.", corsMaxAgeHeader, "600", header)
+	if got, want := header, "600"; got != want {
+		t.Fatalf("bad header: expected %q to be %q, got %q.", corsMaxAgeHeader, want, got)
 	}
 }
 
@@ -302,8 +302,8 @@ func TestCORSHandlerAllowedCredentials(t *testing.T) {
 	}
 
 	header := rr.HeaderMap.Get(corsAllowCredentialsHeader)
-	if header != "true" {
-		t.Fatalf("bad header: expected %s to be %s, got %s.", corsAllowCredentialsHeader, "true", header)
+	if got, want := header, "true"; got != want {
+		t.Fatalf("bad header: expected %q to be %q, got %q.", corsAllowCredentialsHeader, want, got)
 	}
 }
 
@@ -322,8 +322,8 @@ func TestCORSHandlerMultipleAllowOriginsSetsVaryHeader(t *testing.T) {
 	}
 
 	header := rr.HeaderMap.Get(corsVaryHeader)
-	if header != corsOriginHeader {
-		t.Fatalf("bad header: expected %s to be %s, got %s.", corsVaryHeader, corsOriginHeader, header)
+	if got, want := header, corsOriginHeader; got != want {
+		t.Fatalf("bad header: expected %s to be %q, got %q.", corsVaryHeader, want, got)
 	}
 }
 
@@ -366,8 +366,8 @@ func TestCORSOriginValidatorWithImplicitStar(t *testing.T) {
 
 	CORS(AllowedOriginValidator(originValidator))(testHandler).ServeHTTP(rr, r)
 	header := rr.HeaderMap.Get(corsAllowOriginHeader)
-	if header != r.URL.String() {
-		t.Fatalf("bad header: expected %s to be %s, got %s.", corsAllowOriginHeader, r.URL.String(), header)
+	if got, want := header, r.URL.String(); got != want {
+		t.Fatalf("bad header: expected %s to be %q, got %q.", corsAllowOriginHeader, want, got)
 	}
 }
 
@@ -390,8 +390,8 @@ func TestCORSOriginValidatorWithExplicitStar(t *testing.T) {
 		AllowedOrigins([]string{"*"}),
 	)(testHandler).ServeHTTP(rr, r)
 	header := rr.HeaderMap.Get(corsAllowOriginHeader)
-	if header != "*" {
-		t.Fatalf("bad header: expected %s to be %s, got %s.", corsAllowOriginHeader, "*", header)
+	if got, want := header, "*"; got != want {
+		t.Fatalf("bad header: expected %q to be %q, got %q.", corsAllowOriginHeader, want, got)
 	}
 }
 
@@ -404,7 +404,7 @@ func TestCORSAllowStar(t *testing.T) {
 
 	CORS()(testHandler).ServeHTTP(rr, r)
 	header := rr.HeaderMap.Get(corsAllowOriginHeader)
-	if header != "*" {
-		t.Fatalf("bad header: expected %s to be %s, got %s.", corsAllowOriginHeader, "*", header)
+	if got, want := header, "*"; got != want {
+		t.Fatalf("bad header: expected %q to be %q, got %q.", corsAllowOriginHeader, want, got)
 	}
 }
