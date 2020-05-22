@@ -58,6 +58,11 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	h.formatter(h.writer, params)
 }
 
+func (h loggingHandler) Middleware(next http.Handler) http.Handler {
+	h.handler = next
+	return http.HandlerFunc(h.ServeHTTP)
+}
+
 func makeLogger(w http.ResponseWriter) loggingResponseWriter {
 	var logger loggingResponseWriter = &responseLogger{w: w, status: http.StatusOK}
 	if _, ok := w.(http.Hijacker); ok {
@@ -223,9 +228,19 @@ func writeCombinedLog(writer io.Writer, params LogFormatterParams) {
 //
 // See http://httpd.apache.org/docs/2.2/logs.html#combined for a description of this format.
 //
-// LoggingHandler always sets the ident field of the log to -
+// CombinedLoggingHandler always sets the ident field of the log to -
 func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h, writeCombinedLog}
+}
+
+// CombinedLoggingMiddleware return a middleware that logs requests to out in
+// Apache Combined Log Format.
+//
+// See http://httpd.apache.org/docs/2.2/logs.html#combined for a description of this format.
+//
+// CombinedLoggingMiddleware always sets the ident field of the log to -
+func CombinedLoggingMiddleware(out io.Writer) func(http.Handler) http.Handler {
+	return loggingHandler{out, nil, writeCombinedLog}.Middleware
 }
 
 // LoggingHandler return a http.Handler that wraps h and logs requests to out in
@@ -248,8 +263,35 @@ func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h, writeLog}
 }
 
+// LoggingMiddleware return a middleware that logs requests to out in
+// Apache Common Log Format (CLF).
+//
+// See http://httpd.apache.org/docs/2.2/logs.html#common for a description of this format.
+//
+// LoggingMiddleware always sets the ident field of the log to -
+//
+// Example:
+//
+//  r := mux.NewRouter()
+//  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+//  	w.Write([]byte("This is a catch-all route"))
+//  })
+//  m := handlers.LoggingMiddleware(os.Stdout)
+//  r.Use(m)
+//  http.ListenAndServe(":1123", r)
+//
+func LoggingMiddleware(out io.Writer) func(http.Handler) http.Handler {
+	return loggingHandler{out, nil, writeLog}.Middleware
+}
+
 // CustomLoggingHandler provides a way to supply a custom log formatter
 // while taking advantage of the mechanisms in this package
 func CustomLoggingHandler(out io.Writer, h http.Handler, f LogFormatter) http.Handler {
 	return loggingHandler{out, h, f}
+}
+
+// CustomLoggingMiddleware provides a way to supply a custom log formatter
+// while taking advantage of the mechanisms in this package
+func CustomLoggingMiddleware(out io.Writer, f LogFormatter) func(http.Handler) http.Handler {
+	return loggingHandler{out, nil, f}.Middleware
 }
