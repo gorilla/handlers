@@ -158,6 +158,11 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 			username = name
 		}
 	}
+	if username == "-" {
+		if name, _, ok := req.BasicAuth(); ok && name != "" {
+			username = name
+		}
+	}
 
 	host, _, err := net.SplitHostPort(req.RemoteAddr)
 
