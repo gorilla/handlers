@@ -102,14 +102,7 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 			return
 		}
 
-		var upgrade bool
-		for _, v := range strings.Split(r.Header.Get("Connection"), ",") {
-			if strings.ToLower(strings.TrimSpace(v)) == "upgrade" {
-				upgrade = true
-				break
-			}
-		}
-		if upgrade {
+		if r.Header.Get("Upgrade") != "" {
 			h.ServeHTTP(w, r)
 			return
 		}
