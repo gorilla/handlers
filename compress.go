@@ -102,6 +102,11 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 			return
 		}
 
+		if r.Header.Get("Upgrade") != "" {
+			h.ServeHTTP(w, r)
+			return
+		}
+
 		// wrap the ResponseWriter with the writer for the chosen encoding
 		var encWriter io.WriteCloser
 		if encoding == gzipEncoding {
