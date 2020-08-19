@@ -10,35 +10,30 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/felixge/httpsnoop"
 )
 
 const acceptEncoding string = "Accept-Encoding"
 
 type compressResponseWriter struct {
-	io.Writer
-	http.ResponseWriter
-	http.Hijacker
-	http.Flusher
-	http.CloseNotifier
+	compressor io.Writer
+	w          http.ResponseWriter
 }
 
-func (w *compressResponseWriter) WriteHeader(c int) {
-	w.ResponseWriter.Header().Del("Content-Length")
-	w.ResponseWriter.WriteHeader(c)
+func (cw *compressResponseWriter) WriteHeader(c int) {
+	cw.w.Header().Del("Content-Length")
+	cw.w.WriteHeader(c)
 }
 
-func (w *compressResponseWriter) Header() http.Header {
-	return w.ResponseWriter.Header()
-}
-
-func (w *compressResponseWriter) Write(b []byte) (int, error) {
-	h := w.ResponseWriter.Header()
+func (cw *compressResponseWriter) Write(b []byte) (int, error) {
+	h := cw.w.Header()
 	if h.Get("Content-Type") == "" {
 		h.Set("Content-Type", http.DetectContentType(b))
 	}
 	h.Del("Content-Length")
 
-	return w.Writer.Write(b)
+	return cw.compressor.Write(b)
 }
 
 type flusher interface {
@@ -47,12 +42,12 @@ type flusher interface {
 
 func (w *compressResponseWriter) Flush() {
 	// Flush compressed data if compressor supports it.
-	if f, ok := w.Writer.(flusher); ok {
+	if f, ok := w.compressor.(flusher); ok {
 		f.Flush()
 	}
 	// Flush HTTP response.
-	if w.Flusher != nil {
-		w.Flusher.Flush()
+	if f, ok := w.w.(http.Flusher); ok {
+		f.Flush()
 	}
 }
 
@@ -119,28 +114,22 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 		w.Header().Set("Content-Encoding", encoding)
 		r.Header.Del(acceptEncoding)
 
-		hijacker, ok := w.(http.Hijacker)
-		if !ok { /* w is not Hijacker... oh well... */
-			hijacker = nil
+		cw := &compressResponseWriter{
+			w:          w,
+			compressor: encWriter,
 		}
 
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			flusher = nil
-		}
-
-		closeNotifier, ok := w.(http.CloseNotifier)
-		if !ok {
-			closeNotifier = nil
-		}
-
-		w = &compressResponseWriter{
-			Writer:         encWriter,
-			ResponseWriter: w,
-			Hijacker:       hijacker,
-			Flusher:        flusher,
-			CloseNotifier:  closeNotifier,
-		}
+		w = httpsnoop.Wrap(w, httpsnoop.Hooks{
+			Write: func(httpsnoop.WriteFunc) httpsnoop.WriteFunc {
+				return cw.Write
+			},
+			WriteHeader: func(httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+				return cw.WriteHeader
+			},
+			Flush: func(httpsnoop.FlushFunc) httpsnoop.FlushFunc {
+				return cw.Flush
+			},
+		})
 
 		h.ServeHTTP(w, r)
 	})
