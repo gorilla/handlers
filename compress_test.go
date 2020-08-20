@@ -29,7 +29,6 @@ func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 			acceptEncoding: []string{compression},
 		},
 	})
-
 }
 
 func TestCompressHandlerNoCompression(t *testing.T) {
@@ -165,6 +164,7 @@ type fullyFeaturedResponseWriter struct{}
 func (fullyFeaturedResponseWriter) Header() http.Header {
 	return http.Header{}
 }
+
 func (fullyFeaturedResponseWriter) Write([]byte) (int, error) {
 	return 0, nil
 }
@@ -193,9 +193,6 @@ func TestCompressHandlerPreserveInterfaces(t *testing.T) {
 	)
 	var h http.Handler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		comp := r.Header.Get(acceptEncoding)
-		if _, ok := rw.(*compressResponseWriter); !ok {
-			t.Fatalf("ResponseWriter wasn't wrapped by compressResponseWriter, got %T type", rw)
-		}
 		if _, ok := rw.(http.Flusher); !ok {
 			t.Errorf("ResponseWriter lost http.Flusher interface for %q", comp)
 		}
@@ -207,9 +204,7 @@ func TestCompressHandlerPreserveInterfaces(t *testing.T) {
 		}
 	})
 	h = CompressHandler(h)
-	var (
-		rw fullyFeaturedResponseWriter
-	)
+	var rw fullyFeaturedResponseWriter
 	r, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatalf("Failed to create test request: %v", err)
@@ -218,5 +213,34 @@ func TestCompressHandlerPreserveInterfaces(t *testing.T) {
 	h.ServeHTTP(rw, r)
 
 	r.Header.Set(acceptEncoding, "deflate")
+	h.ServeHTTP(rw, r)
+}
+
+type paltryResponseWriter struct{}
+
+func (paltryResponseWriter) Header() http.Header {
+	return http.Header{}
+}
+
+func (paltryResponseWriter) Write([]byte) (int, error) {
+	return 0, nil
+}
+func (paltryResponseWriter) WriteHeader(int) {}
+
+func TestCompressHandlerDoesntInventInterfaces(t *testing.T) {
+	var h http.Handler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if _, ok := rw.(http.Hijacker); ok {
+			t.Error("ResponseWriter shouldn't implement http.Hijacker")
+		}
+	})
+
+	h = CompressHandler(h)
+
+	var rw paltryResponseWriter
+	r, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatalf("Failed to create test request: %v", err)
+	}
+	r.Header.Set(acceptEncoding, "gzip")
 	h.ServeHTTP(rw, r)
 }

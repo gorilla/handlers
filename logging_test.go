@@ -23,24 +23,24 @@ import (
 
 func TestMakeLogger(t *testing.T) {
 	rec := httptest.NewRecorder()
-	logger := makeLogger(rec)
+	logger, w := makeLogger(rec)
 	// initial status
 	if logger.Status() != http.StatusOK {
 		t.Fatalf("wrong status, got %d want %d", logger.Status(), http.StatusOK)
 	}
 	// WriteHeader
-	logger.WriteHeader(http.StatusInternalServerError)
+	w.WriteHeader(http.StatusInternalServerError)
 	if logger.Status() != http.StatusInternalServerError {
 		t.Fatalf("wrong status, got %d want %d", logger.Status(), http.StatusInternalServerError)
 	}
 	// Write
-	logger.Write([]byte(ok))
+	w.Write([]byte(ok))
 	if logger.Size() != len(ok) {
 		t.Fatalf("wrong size, got %d want %d", logger.Size(), len(ok))
 	}
 	// Header
-	logger.Header().Set("key", "value")
-	if val := logger.Header().Get("key"); val != "value" {
+	w.Header().Set("key", "value")
+	if val := w.Header().Get("key"); val != "value" {
 		t.Fatalf("wrong header, got %s want %s", val, "value")
 	}
 }
@@ -202,6 +202,7 @@ func TestLogFormatterWriteLog_Scenario4(t *testing.T) {
 	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET /test?abc=hello%20world&a=b%3F HTTP/1.1\" 200 100\n"
 	LoggingScenario4(t, formatter, expected)
 }
+
 func TestLogFormatterCombinedLog_Scenario5(t *testing.T) {
 	formatter := writeCombinedLog
 	expected := "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
@@ -289,6 +290,7 @@ func LoggingScenario3(t *testing.T, formatter LogFormatter, expected string) {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
 }
+
 func LoggingScenario4(t *testing.T, formatter LogFormatter, expected string) {
 	loc, err := time.LoadLocation("Europe/Warsaw")
 	if err != nil {
@@ -357,7 +359,6 @@ func constructTypicalRequestOk() *http.Request {
 
 // CONNECT request over http/2.0
 func constructConnectRequest() *http.Request {
-
 	req := &http.Request{
 		Method:     "CONNECT",
 		Host:       "www.example.com:443",

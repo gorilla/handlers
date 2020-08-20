@@ -9,6 +9,15 @@ import (
 	"testing"
 )
 
+// *httptest.ResponseRecorder doesn't implement Pusher, so wrap it.
+type pushRecorder struct {
+	*httptest.ResponseRecorder
+}
+
+func (pr pushRecorder) Push(target string, opts *http.PushOptions) error {
+	return nil
+}
+
 func TestLoggingHandlerWithPush(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if _, ok := w.(http.Pusher); !ok {
@@ -18,7 +27,7 @@ func TestLoggingHandlerWithPush(t *testing.T) {
 	})
 
 	logger := LoggingHandler(ioutil.Discard, handler)
-	logger.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/"))
+	logger.ServeHTTP(pushRecorder{httptest.NewRecorder()}, newRequest("GET", "/"))
 }
 
 func TestCombinedLoggingHandlerWithPush(t *testing.T) {
@@ -30,5 +39,5 @@ func TestCombinedLoggingHandlerWithPush(t *testing.T) {
 	})
 
 	logger := CombinedLoggingHandler(ioutil.Discard, handler)
-	logger.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/"))
+	logger.ServeHTTP(pushRecorder{httptest.NewRecorder()}, newRequest("GET", "/"))
 }
