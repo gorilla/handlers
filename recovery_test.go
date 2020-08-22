@@ -30,15 +30,29 @@ func TestRecoveryLoggerWithCustomLogger(t *testing.T) {
 	var buf bytes.Buffer
 	var logger = log.New(&buf, "", log.LstdFlags)
 
-	handler := RecoveryHandler(RecoveryLogger(logger), PrintRecoveryStack(false))
 	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		panic("Unexpected error!")
 	})
 
-	recovery := handler(handlerFunc)
-	recovery.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+	t.Run("Without print stack", func(t *testing.T) {
+		handler := RecoveryHandler(RecoveryLogger(logger), PrintRecoveryStack(false))
 
-	if !strings.Contains(buf.String(), "Unexpected error!") {
-		t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "Unexpected error!")
-	}
+		recovery := handler(handlerFunc)
+		recovery.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+
+		if !strings.Contains(buf.String(), "Unexpected error!") {
+			t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "Unexpected error!")
+		}
+	})
+
+	t.Run("With print stack enabled", func(t *testing.T) {
+		handler := RecoveryHandler(RecoveryLogger(logger), PrintRecoveryStack(true))
+
+		recovery := handler(handlerFunc)
+		recovery.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+
+		if !strings.Contains(buf.String(), "runtime/debug.Stack") {
+			t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "runtime/debug.Stack")
+		}
+	})
 }
