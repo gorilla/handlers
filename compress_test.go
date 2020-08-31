@@ -6,10 +6,16 @@ package handlers
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 )
@@ -155,6 +161,54 @@ func TestCompressHandlerGzipDeflate(t *testing.T) {
 	}
 	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
+	}
+}
+
+// Make sure we can compress and serve an *os.File properly. We need
+// to use a real http server to trigger the net/http sendfile special
+// case.
+func TestCompressFile(t *testing.T) {
+	dir, err := ioutil.TempDir("", "gorilla_compress")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	err = ioutil.WriteFile(filepath.Join(dir, "hello.txt"), []byte("hello"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := httptest.NewServer(CompressHandler(http.FileServer(http.Dir(dir))))
+	defer s.Close()
+
+	url := &url.URL{Scheme: "http", Host: s.Listener.Addr().String(), Path: "/hello.txt"}
+	req, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set(acceptEncoding, "gzip")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected OK, got %q", res.Status)
+	}
+
+	var got bytes.Buffer
+	gr, err := gzip.NewReader(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = io.Copy(&got, gr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.String() != "hello" {
+		t.Errorf("expected hello, got %q", got.String())
 	}
 }
 
