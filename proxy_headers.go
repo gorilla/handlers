@@ -51,9 +51,10 @@ func ProxyHeaders(h http.Handler) http.Handler {
 		if scheme := getScheme(r); scheme != "" {
 			r.URL.Scheme = scheme
 		}
-		// Set the host with the value passed by the proxy
-		if r.Header.Get(xForwardedHost) != "" {
-			r.Host = r.Header.Get(xForwardedHost)
+		// Set the host with the value passed by the first proxy
+		if forwardedHost := r.Header.Get(xForwardedHost); forwardedHost != "" {
+			forwardedHostSlice := strings.Split(forwardedHost, ",")
+			r.Host = strings.TrimSpace(forwardedHostSlice[0])
 		}
 		// Call the next handler in the chain.
 		h.ServeHTTP(w, r)
