@@ -151,18 +151,18 @@ func BenchmarkWriteLog(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		writeLog(buf, params)
+		WriteLog(buf, params)
 	}
 }
 
 func TestLogFormatterWriteLog_Scenario1(t *testing.T) {
-	formatter := writeLog
+	formatter := WriteLog
 	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100\n"
 	LoggingScenario1(t, formatter, expected)
 }
 
 func TestLogFormatterCombinedLog_Scenario1(t *testing.T) {
-	formatter := writeCombinedLog
+	formatter := WriteCombinedLog
 	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
@@ -170,13 +170,13 @@ func TestLogFormatterCombinedLog_Scenario1(t *testing.T) {
 }
 
 func TestLogFormatterWriteLog_Scenario2(t *testing.T) {
-	formatter := writeLog
+	formatter := WriteLog
 	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"CONNECT www.example.com:443 HTTP/2.0\" 200 100\n"
 	LoggingScenario2(t, formatter, expected)
 }
 
 func TestLogFormatterCombinedLog_Scenario2(t *testing.T) {
-	formatter := writeCombinedLog
+	formatter := WriteCombinedLog
 	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"CONNECT www.example.com:443 HTTP/2.0\" 200 100 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
@@ -184,13 +184,13 @@ func TestLogFormatterCombinedLog_Scenario2(t *testing.T) {
 }
 
 func TestLogFormatterWriteLog_Scenario3(t *testing.T) {
-	formatter := writeLog
+	formatter := WriteLog
 	expected := "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500\n"
 	LoggingScenario3(t, formatter, expected)
 }
 
 func TestLogFormatterCombinedLog_Scenario3(t *testing.T) {
-	formatter := writeCombinedLog
+	formatter := WriteCombinedLog
 	expected := "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
@@ -198,13 +198,13 @@ func TestLogFormatterCombinedLog_Scenario3(t *testing.T) {
 }
 
 func TestLogFormatterWriteLog_Scenario4(t *testing.T) {
-	formatter := writeLog
+	formatter := WriteLog
 	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET /test?abc=hello%20world&a=b%3F HTTP/1.1\" 200 100\n"
 	LoggingScenario4(t, formatter, expected)
 }
 
 func TestLogFormatterCombinedLog_Scenario5(t *testing.T) {
-	formatter := writeCombinedLog
+	formatter := WriteCombinedLog
 	expected := "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"

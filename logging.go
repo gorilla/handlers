@@ -185,19 +185,19 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 	return buf
 }
 
-// writeLog writes a log entry for req to w in Apache Common Log Format.
+// WriteLog writes a log entry for req to w in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeLog(writer io.Writer, params LogFormatterParams) {
+func WriteLog(writer io.Writer, params LogFormatterParams) {
 	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size)
 	buf = append(buf, '\n')
 	writer.Write(buf)
 }
 
-// writeCombinedLog writes a log entry for req to w in Apache Combined Log Format.
+// WriteCombinedLog writes a log entry for req to w in Apache Combined Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeCombinedLog(writer io.Writer, params LogFormatterParams) {
+func WriteCombinedLog(writer io.Writer, params LogFormatterParams) {
 	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size)
 	buf = append(buf, ` "`...)
 	buf = appendQuoted(buf, params.Request.Referer())
@@ -214,7 +214,7 @@ func writeCombinedLog(writer io.Writer, params LogFormatterParams) {
 //
 // LoggingHandler always sets the ident field of the log to -
 func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
-	return loggingHandler{out, h, writeCombinedLog}
+	return loggingHandler{out, h, WriteCombinedLog}
 }
 
 // LoggingHandler return a http.Handler that wraps h and logs requests to out in
@@ -234,7 +234,7 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //  http.ListenAndServe(":1123", loggedRouter)
 //
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
-	return loggingHandler{out, h, writeLog}
+	return loggingHandler{out, h, WriteLog}
 }
 
 // CustomLoggingHandler provides a way to supply a custom log formatter
