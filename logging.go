@@ -69,6 +69,9 @@ func makeLogger(w http.ResponseWriter) (*responseLogger, http.ResponseWriter) {
 		WriteHeader: func(httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
 			return logger.WriteHeader
 		},
+		ReadFrom: func(httpsnoop.ReadFromFunc) httpsnoop.ReadFromFunc {
+			return logger.ReadFrom
+		},
 	})
 }
 

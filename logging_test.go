@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"mime/multipart"
@@ -21,8 +22,16 @@ import (
 	"time"
 )
 
+type ResponseRecorderReaderFrom struct {
+	*httptest.ResponseRecorder
+}
+
+func (rr *ResponseRecorderReaderFrom) ReadFrom(r io.Reader) (int64, error) {
+	return rr.Body.ReadFrom(r)
+}
+
 func TestMakeLogger(t *testing.T) {
-	rec := httptest.NewRecorder()
+	rec := &ResponseRecorderReaderFrom{httptest.NewRecorder()}
 	logger, w := makeLogger(rec)
 	// initial status
 	if logger.Status() != http.StatusOK {
@@ -37,6 +46,12 @@ func TestMakeLogger(t *testing.T) {
 	w.Write([]byte(ok))
 	if logger.Size() != len(ok) {
 		t.Fatalf("wrong size, got %d want %d", logger.Size(), len(ok))
+	}
+	// ReadFrom
+	buf := bytes.NewBufferString(ok)
+	w.(io.ReaderFrom).ReadFrom(buf)
+	if logger.Size() != len(ok)*2 {
+		t.Fatalf("wrong size after ReadFrom, got %d want %d", logger.Size(), len(ok)*2)
 	}
 	// Header
 	w.Header().Set("key", "value")

@@ -7,6 +7,7 @@ package handlers
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"sort"
@@ -54,6 +55,12 @@ type responseLogger struct {
 func (l *responseLogger) Write(b []byte) (int, error) {
 	size, err := l.w.Write(b)
 	l.size += size
+	return size, err
+}
+
+func (l *responseLogger) ReadFrom(r io.Reader) (int64, error) {
+	size, err := l.w.(io.ReaderFrom).ReadFrom(r)
+	l.size += int(size)
 	return size, err
 }
 
