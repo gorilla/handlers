@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -235,6 +236,26 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h, writeLog}
+}
+
+// StdoutLoggingHandler return a http.Handler that wraps h and logs requests to Stdout in
+// Apache Common Log Format (CLF).
+//
+// See http://httpd.apache.org/docs/2.2/logs.html#common for a description of this format.
+//
+// StdoutLoggingHandler always sets the ident field of the log to -
+//
+// Example:
+//
+//  r := mux.NewRouter()
+//  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+//  	w.Write([]byte("This is a catch-all route"))
+//  })
+//  r.Use(handlers.StdoutLoggingHandler)
+//  http.ListenAndServe(":1123", r)
+//
+func StdoutLoggingHandler(h http.Handler) http.Handler {
+	return LoggingHandler(os.Stdout, h)
 }
 
 // CustomLoggingHandler provides a way to supply a custom log formatter
