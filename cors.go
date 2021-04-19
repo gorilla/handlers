@@ -12,6 +12,7 @@ type CORSOption func(*cors) error
 type cors struct {
 	h                      http.Handler
 	allowedHeaders         []string
+	allowedHeadersFunc     func() []string
 	allowedMethods         []string
 	allowedOrigins         []string
 	allowedOriginValidator OriginValidator
@@ -69,20 +70,27 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		method := r.Header.Get(corsRequestMethodHeader)
-		if !ch.isMatch(method, ch.allowedMethods) {
+		if !isMatch(method, ch.allowedMethods) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
+		}
+
+		referenceAllowedHeaders := ch.allowedHeaders
+
+		if ch.allowedHeadersFunc != nil {
+			referenceAllowedHeaders = combineAllowedHeaders(referenceAllowedHeaders, ch.allowedHeadersFunc())
 		}
 
 		requestHeaders := strings.Split(r.Header.Get(corsRequestHeadersHeader), ",")
 		allowedHeaders := []string{}
 		for _, v := range requestHeaders {
 			canonicalHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
-			if canonicalHeader == "" || ch.isMatch(canonicalHeader, defaultCorsHeaders) {
+			if canonicalHeader == "" || isMatch(canonicalHeader, defaultCorsHeaders) {
 				continue
 			}
 
-			if !ch.isMatch(canonicalHeader, ch.allowedHeaders) {
+			// TODO - make local
+			if !isMatch(canonicalHeader, referenceAllowedHeaders) {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
@@ -98,7 +106,7 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(ch.maxAge))
 		}
 
-		if !ch.isMatch(method, defaultCorsMethods) {
+		if !isMatch(method, defaultCorsMethods) {
 			w.Header().Set(corsAllowMethodsHeader, method)
 		}
 	} else {
@@ -192,17 +200,39 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 // application/x-www-form-urlencoded, multipart/form-data, or text/plain.
 func AllowedHeaders(headers []string) CORSOption {
 	return func(ch *cors) error {
-		for _, v := range headers {
-			normalizedHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
-			if normalizedHeader == "" {
-				continue
-			}
 
-			if !ch.isMatch(normalizedHeader, ch.allowedHeaders) {
-				ch.allowedHeaders = append(ch.allowedHeaders, normalizedHeader)
-			}
+		ch.allowedHeaders = combineAllowedHeaders(ch.allowedHeaders, headers)
+		return nil
+	}
+}
+
+func combineAllowedHeaders(existing []string, add []string) []string {
+
+	result := existing
+
+	for _, v := range add {
+		normalizedHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
+		if normalizedHeader == "" {
+			continue
 		}
 
+		if !isMatch(normalizedHeader, existing) {
+			result = append(result, normalizedHeader)
+		}
+	}
+
+	return result
+}
+
+// AllowedHeaders creates a function which appends the allowed headers per
+// CORS request.
+// This is an append operation so the headers Accept, Accept-Language,
+// and Content-Language are always allowed.
+// Content-Type must be explicitly declared if accepting Content-Types other than
+// application/x-www-form-urlencoded, multipart/form-data, or text/plain.
+func AllowedHeadersFunc(input func() []string) CORSOption {
+	return func(ch *cors) error {
+		ch.allowedHeadersFunc = input
 		return nil
 	}
 }
@@ -220,7 +250,7 @@ func AllowedMethods(methods []string) CORSOption {
 				continue
 			}
 
-			if !ch.isMatch(normalizedMethod, ch.allowedMethods) {
+			if !isMatch(normalizedMethod, ch.allowedMethods) {
 				ch.allowedMethods = append(ch.allowedMethods, normalizedMethod)
 			}
 		}
@@ -279,7 +309,7 @@ func ExposedHeaders(headers []string) CORSOption {
 				continue
 			}
 
-			if !ch.isMatch(normalizedHeader, ch.exposedHeaders) {
+			if !isMatch(normalizedHeader, ch.exposedHeaders) {
 				ch.exposedHeaders = append(ch.exposedHeaders, normalizedHeader)
 			}
 		}
@@ -344,7 +374,7 @@ func (ch *cors) isOriginAllowed(origin string) bool {
 	return false
 }
 
-func (ch *cors) isMatch(needle string, haystack []string) bool {
+func isMatch(needle string, haystack []string) bool {
 	for _, v := range haystack {
 		if v == needle {
 			return true
