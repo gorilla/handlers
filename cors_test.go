@@ -249,7 +249,7 @@ func TestCORSHandlerAllowedHeaderForPreflight(t *testing.T) {
 	}
 }
 
-func TestCORSHandlerAllowedHeaderFuncForPreflight(t *testing.T) {
+func TestCORSHandlerAllowedHeadersFuncForPreflight(t *testing.T) {
 	r := newRequest("OPTIONS", "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, "POST")
@@ -259,7 +259,19 @@ func TestCORSHandlerAllowedHeaderFuncForPreflight(t *testing.T) {
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
-	CORS(AllowedHeadersFunc(func() []string { return []string{"Content-Type"} }))(testHandler).ServeHTTP(rr, r)
+	count := 0
+
+	CORS(AllowedHeadersFunc(func(_r *http.Request) []string {
+		count++
+		if _r != r {
+			t.Fatalf("bad request to headers func: got %v want %v", _r, r)
+		}
+		return []string{"Content-Type"}
+	}))(testHandler).ServeHTTP(rr, r)
+
+	if count != 1 {
+		t.Fatalf("bad headers func call count: got %d want 1", count)
+	}
 
 	if got, want := rr.Code, http.StatusOK; got != want {
 		t.Fatalf("bad status: got %v want %v", got, want)
@@ -338,6 +350,38 @@ func TestCORSHandlerMultipleAllowOriginsSetsVaryHeader(t *testing.T) {
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
 	CORS(AllowedOrigins([]string{r.URL.String(), "http://google.com"}))(testHandler).ServeHTTP(rr, r)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	}
+
+	header := rr.HeaderMap.Get(corsVaryHeader)
+	if got, want := header, corsOriginHeader; got != want {
+		t.Fatalf("bad header: expected %s to be %q, got %q.", corsVaryHeader, want, got)
+	}
+}
+
+func TestCORSHandlerMultipleAllowOriginsFunc(t *testing.T) {
+	r := newRequest("GET", "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	count := 0
+
+	CORS(AllowedOriginsFunc(func(_r *http.Request) []string {
+		count ++
+		if _r != r {
+			t.Fatalf("bad request to origns func status: got %v want %v", _r, r)
+		}
+		return []string{r.URL.String(), "http://google.com"}
+	}))(testHandler).ServeHTTP(rr, r)
+
+	if count != 2 {
+		t.Fatalf("bad origins func call count: got %d want 1", count)
+	}
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
