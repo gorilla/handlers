@@ -455,22 +455,22 @@ func TestCORSOriginValidatorWithExplicitStar(t *testing.T) {
 		AllowedOriginValidator(originValidator),
 		AllowedOrigins([]string{"*"}),
 	)(testHandler).ServeHTTP(rr, r)
-	header := rr.HeaderMap.Get(corsAllowOriginHeader)
+	header := rr.Header().Get(corsAllowOriginHeader)
 	if got, want := header, "*"; got != want {
 		t.Fatalf("bad header: expected %q to be %q, got %q.", corsAllowOriginHeader, want, got)
 	}
 }
 
-func TestCORSAllowStar(t *testing.T) {
+func TestCORSAllowStarDisallowDefault(t *testing.T) {
 	r := newRequest("GET", "http://a.example.com")
 	r.Header.Set("Origin", r.URL.String())
 	rr := httptest.NewRecorder()
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
-	CORS()(testHandler).ServeHTTP(rr, r)
-	header := rr.HeaderMap.Get(corsAllowOriginHeader)
-	if got, want := header, "*"; got != want {
-		t.Fatalf("bad header: expected %q to be %q, got %q.", corsAllowOriginHeader, want, got)
+	CORS(DisallowDefaultOrigins())(testHandler).ServeHTTP(rr, r)
+	header := rr.Header().Get(corsAllowOriginHeader)
+	if header != "" {
+		t.Fatalf("expected header to empty")
 	}
 }

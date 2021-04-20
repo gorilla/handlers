@@ -21,6 +21,8 @@ type cors struct {
 	maxAge                 int
 	ignoreOptions          bool
 	allowCredentials       bool
+	allowDefaultOrigins    bool
+	defaultOrigin          string
 	optionStatusCode       int
 }
 
@@ -128,7 +130,7 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	returnOrigin := origin
 	if ch.allowedOriginValidator == nil && len(referenceAllowedOrigins) == 0 {
-		returnOrigin = "*"
+		returnOrigin = ch.defaultOrigin
 	} else {
 		for _, o := range referenceAllowedOrigins {
 			// A configuration of * is different than explicitly setting an allowed
@@ -182,6 +184,8 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 		allowedHeaders:   defaultCorsHeaders,
 		allowedOrigins:   []string{},
 		optionStatusCode: defaultCorsOptionStatusCode,
+		allowDefaultOrigins: true,
+		defaultOrigin: "*",
 	}
 
 	for _, option := range opts {
@@ -205,6 +209,15 @@ func AllowedHeaders(headers []string) CORSOption {
 	return func(ch *cors) error {
 
 		ch.allowedHeaders = combineAllowedHeaders(ch.allowedHeaders, headers)
+		return nil
+	}
+}
+
+// Disallows default origins
+func DisallowDefaultOrigins() CORSOption {
+	return func(ch *cors) error {
+
+		ch.allowDefaultOrigins = false
 		return nil
 	}
 }
@@ -384,7 +397,7 @@ func (ch *cors) isOriginAllowed(r *http.Request, origin string) bool {
 	}
 
 	if len(allowedOrigins) == 0 {
-		return true
+		return ch.allowDefaultOrigins
 	}
 
 	for _, allowedOrigin := range allowedOrigins {
