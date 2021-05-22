@@ -372,7 +372,7 @@ func TestCORSHandlerMultipleAllowOriginsFunc(t *testing.T) {
 	count := 0
 
 	CORS(AllowedOriginsFunc(func(_r *http.Request) []string {
-		count ++
+		count++
 		if _r != r {
 			t.Fatalf("bad request to origns func status: got %v want %v", _r, r)
 		}

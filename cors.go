@@ -180,12 +180,12 @@ func CORS(opts ...CORSOption) func(http.Handler) http.Handler {
 
 func parseCORSOptions(opts ...CORSOption) *cors {
 	ch := &cors{
-		allowedMethods:   defaultCorsMethods,
-		allowedHeaders:   defaultCorsHeaders,
-		allowedOrigins:   []string{},
-		optionStatusCode: defaultCorsOptionStatusCode,
+		allowedMethods:      defaultCorsMethods,
+		allowedHeaders:      defaultCorsHeaders,
+		allowedOrigins:      []string{},
+		optionStatusCode:    defaultCorsOptionStatusCode,
 		allowDefaultOrigins: true,
-		defaultOrigin: "*",
+		defaultOrigin:       "*",
 	}
 
 	for _, option := range opts {
@@ -409,7 +409,7 @@ func (ch *cors) isOriginAllowed(r *http.Request, origin string) bool {
 	return false
 }
 
-func (ch *cors) getAllowedOrigins(r *http.Request) [] string {
+func (ch *cors) getAllowedOrigins(r *http.Request) []string {
 	if ch.allowedOriginsFunc != nil {
 		return ch.allowedOriginsFunc(r)
 	} else {
