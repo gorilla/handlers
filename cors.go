@@ -303,7 +303,6 @@ func filterAllowedOrigins(input []string) []string {
 	for _, v := range input {
 		if v == corsOriginMatchAll {
 			return []string{corsOriginMatchAll}
-			return nil
 		}
 	}
 	return input
