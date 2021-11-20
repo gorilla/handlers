@@ -44,7 +44,7 @@ func parseRecoveryOptions(h http.Handler, opts ...RecoveryOption) http.Handler {
 //  http.ListenAndServe(":1123", handlers.RecoveryHandler()(r))
 func RecoveryHandler(opts ...RecoveryOption) func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
-		r := &recoveryHandler{handler: h}
+		r := &recoveryHandler{handler: h, logger: log.Default()}
 		return parseRecoveryOptions(r, opts...)
 	}
 }
@@ -79,18 +79,9 @@ func (h recoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h recoveryHandler) log(v ...interface{}) {
-	if h.logger != nil {
-		h.logger.Println(v...)
-	} else {
-		log.Println(v...)
-	}
+	h.logger.Println(v...)
 
 	if h.printStack {
-		stack := string(debug.Stack())
-		if h.logger != nil {
-			h.logger.Println(stack)
-		} else {
-			log.Println(stack)
-		}
+		h.logger.Println(string(debug.Stack()))
 	}
 }
