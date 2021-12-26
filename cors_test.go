@@ -23,7 +23,7 @@ func TestCORSAllowedHeadersAll(t *testing.T) {
 
 	header := rr.Header().Get(corsAllowHeadersHeader)
 	if got, want := header, "*"; got != want {
-		t.Fatalf("bad header: expected %q header, got empty header for method.", want)
+		t.Fatalf("bad header: expected %q header, got wrong header value.", want)
 	}
 }
 
