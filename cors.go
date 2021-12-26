@@ -45,6 +45,7 @@ const (
 	corsOriginHeader           string = "Origin"
 	corsVaryHeader             string = "Vary"
 	corsOriginMatchAll         string = "*"
+	corsHeaderMatchAll         string = "*"
 )
 
 func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -82,12 +83,16 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			if !ch.isMatch(canonicalHeader, ch.allowedHeaders) {
+			if !ch.isMatch(canonicalHeader, ch.allowedHeaders) && !ch.isMatch(corsHeaderMatchAll, ch.allowedHeaders) {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 
-			allowedHeaders = append(allowedHeaders, canonicalHeader)
+			if ch.isMatch(corsHeaderMatchAll, ch.allowedHeaders) {
+				allowedHeaders = []string{corsHeaderMatchAll}
+			} else {
+				allowedHeaders = append(allowedHeaders, canonicalHeader)
+			}
 		}
 
 		if len(allowedHeaders) > 0 {
@@ -193,6 +198,10 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 func AllowedHeaders(headers []string) CORSOption {
 	return func(ch *cors) error {
 		for _, v := range headers {
+			if v == corsHeaderMatchAll {
+				ch.allowedHeaders = []string{corsHeaderMatchAll}
+				return nil
+			}
 			normalizedHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
 			if normalizedHeader == "" {
 				continue

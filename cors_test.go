@@ -7,6 +7,26 @@ import (
 	"testing"
 )
 
+func TestCORSAllowedHeadersAll(t *testing.T) {
+	r := newRequest("OPTIONS", "http://www.example.com")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, "GET")
+	r.Header.Set(corsRequestHeadersHeader, "X-Forwarded-For")
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS(
+		AllowedHeaders([]string{"*"}),
+		AllowedOrigins([]string{"http://www.example.com"}),
+	)(testHandler).ServeHTTP(rr, r)
+
+	header := rr.Header().Get(corsAllowHeadersHeader)
+	if got, want := header, "*"; got != want {
+		t.Fatalf("bad header: expected %q header, got empty header for method.", want)
+	}
+}
+
 func TestDefaultCORSHandlerReturnsOk(t *testing.T) {
 	r := newRequest("GET", "http://www.example.com/")
 	rr := httptest.NewRecorder()
