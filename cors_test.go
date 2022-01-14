@@ -408,3 +408,37 @@ func TestCORSAllowStar(t *testing.T) {
 		t.Fatalf("bad header: expected %q to be %q, got %q.", corsAllowOriginHeader, want, got)
 	}
 }
+
+func TestCORSHandlerAllowedCredentialsDisallowsStar(t *testing.T) {
+	r := httptest.NewRequest(http.MethodHead, "http://example.com", nil)
+	r.Header.Set("Origin", r.URL.String())
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS(
+		AllowCredentials(),
+		AllowedOrigins([]string{"*"}),
+	)(testHandler).ServeHTTP(rr, r)
+	header := rr.HeaderMap.Get(corsAllowOriginHeader)
+	if got, want := header, ""; got != want {
+		t.Fatalf("found header: expected no %s header, got %q.", corsAllowOriginHeader, got)
+	}
+}
+
+func TestCORSHandlerAllowedCredentialsMultipleOriginsWithStarLiteral(t *testing.T) {
+	r := httptest.NewRequest(http.MethodHead, "http://example.com", nil)
+	r.Header.Set("Origin", r.URL.String())
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS(
+		AllowCredentials(),
+		AllowedOrigins([]string{r.URL.String(), "*"}),
+	)(testHandler).ServeHTTP(rr, r)
+	header := rr.HeaderMap.Get(corsAllowOriginHeader)
+	if got, want := header, r.URL.String(); got != want {
+		t.Fatalf("bad header: expected %q to be %q, got %q", corsAllowOriginHeader, want, got)
+	}
+}
