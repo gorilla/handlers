@@ -17,6 +17,8 @@ func TestGetIP(t *testing.T) {
 		{xForwardedFor, "8.8.8.8", "8.8.8.8"},                                   // Single address
 		{xForwardedFor, "8.8.8.8, 8.8.4.4", "8.8.8.8"},                          // Multiple
 		{xForwardedFor, "[2001:db8:cafe::17]:4711", "[2001:db8:cafe::17]:4711"}, // IPv6 address
+		{xForwardedFor, "8.8.8.8,8.8.4.4", "8.8.8.8"},                           // No space after comma
+		{xForwardedFor, "8.8.8.8 , 8.8.4.4", "8.8.8.8"},                         // Space before comma
 		{xForwardedFor, "", ""},                                                 // None
 		{xRealIP, "8.8.8.8", "8.8.8.8"},                                         // Single address
 		{xRealIP, "8.8.8.8, 8.8.4.4", "8.8.8.8, 8.8.4.4"},                       // Multiple
@@ -27,6 +29,8 @@ func TestGetIP(t *testing.T) {
 		{forwarded, `for=192.0.2.60;proto=http;by=203.0.113.43`, `192.0.2.60`},        // Multiple params
 		{forwarded, `for=192.0.2.43, for=198.51.100.17`, "192.0.2.43"},                // Multiple params
 		{forwarded, `for="workstation.local",for=198.51.100.17`, "workstation.local"}, // Hostname
+		{forwarded, `for=192.0.2.43,for=198.51.100.17`, "192.0.2.43"},                 // No space after comma
+		{forwarded, `for=192.0.2.43  ,  for=198.51.100.17`, "192.0.2.43"},             // Space before comma
 	}
 
 	for _, v := range headers {
@@ -36,7 +40,7 @@ func TestGetIP(t *testing.T) {
 			}}
 		res := getIP(req)
 		if res != v.expected {
-			t.Fatalf("wrong header for %s: got %s want %s", v.key, res,
+			t.Fatalf("wrong header for %s: got %q want %q", v.key, res,
 				v.expected)
 		}
 	}
