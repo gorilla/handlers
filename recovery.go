@@ -36,12 +36,12 @@ func parseRecoveryOptions(h http.Handler, opts ...RecoveryOption) http.Handler {
 //
 // Example:
 //
-//  r := mux.NewRouter()
-//  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-//  	panic("Unexpected error!")
-//  })
+//	r := mux.NewRouter()
+//	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+//		panic("Unexpected error!")
+//	})
 //
-//  http.ListenAndServe(":1123", handlers.RecoveryHandler()(r))
+//	http.ListenAndServe(":1123", handlers.RecoveryHandler()(r))
 func RecoveryHandler(opts ...RecoveryOption) func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		r := &recoveryHandler{handler: h}
