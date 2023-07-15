@@ -4,12 +4,6 @@ gorilla/handlers
 [![CircleCI](https://circleci.com/gh/gorilla/handlers.svg?style=svg)](https://circleci.com/gh/gorilla/handlers)
 [![Sourcegraph](https://sourcegraph.com/github.com/gorilla/handlers/-/badge.svg)](https://sourcegraph.com/github.com/gorilla/handlers?badge)
 
----
-
-**The Gorilla project has been archived, and is no longer under active maintainenance. You can read more here: https://github.com/gorilla#gorilla-toolkit**
-
----
-
 Package handlers is a collection of handlers (aka "HTTP middleware") for use
 with Go's `net/http` package (or any framework supporting `http.Handler`), including:
 
