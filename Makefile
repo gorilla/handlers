@@ -7,8 +7,8 @@ GO_SEC_URI=github.com/securego/gosec/v2/cmd/gosec@latest
 GO_VULNCHECK=$(shell which govulncheck 2> /dev/null || echo '')
 GO_VULNCHECK_URI=golang.org/x/vuln/cmd/govulncheck@latest
 
-.PHONY: check
-check: sec govulncheck lint test
+.PHONY: verify
+verify: sec govulncheck lint test
 
 .PHONY: lint
 lint:
