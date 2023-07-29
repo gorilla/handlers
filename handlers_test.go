@@ -19,7 +19,7 @@ const (
 )
 
 var okHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-	w.Write([]byte(ok))
+	w.Write([]byte(ok)) //nolint:errcheck // this error is safe to ignore in unit test
 })
 
 func newRequest(method, url string) *http.Request {

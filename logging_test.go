@@ -35,7 +35,11 @@ func TestMakeLogger(t *testing.T) {
 		t.Fatalf("wrong status, got %d want %d", logger.Status(), http.StatusInternalServerError)
 	}
 	// Write
-	w.Write([]byte(ok))
+	_, err := w.Write([]byte(ok))
+	if err != nil {
+		t.Fatalf("error while writing to http.ResponseWriter %v", err)
+		return
+	}
 	if logger.Size() != len(ok) {
 		t.Fatalf("wrong size, got %d want %d", logger.Size(), len(ok))
 	}

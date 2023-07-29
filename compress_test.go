@@ -26,7 +26,7 @@ func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 		w.Header().Set("Content-Length", strconv.Itoa(9*1024))
 		w.Header().Set("Content-Type", contentType)
 		for i := 0; i < 1024; i++ {
-			io.WriteString(w, "Gorilla!\n")
+			io.WriteString(w, "Gorilla!\n") //nolint:errcheck // this error is safe to ignore in unit test
 		}
 	})).ServeHTTP(w, &http.Request{
 		Method: http.MethodGet,
