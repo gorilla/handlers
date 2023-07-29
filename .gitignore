@@ -1,6 +1,2 @@
-# IDE Metadata
-.idea
-.vscode
-
 # Output of the go test coverage tool
 coverage.coverprofile
