@@ -19,7 +19,7 @@ func TestRecoveryLoggerWithDefaultOptions(t *testing.T) {
 	})
 
 	recovery := handler(handlerFunc)
-	recovery.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+	recovery.ServeHTTP(httptest.NewRecorder(), newRequest(http.MethodGet, "/subdir/asdf"))
 
 	if !strings.Contains(buf.String(), "Unexpected error!") {
 		t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "Unexpected error!")
@@ -28,7 +28,7 @@ func TestRecoveryLoggerWithDefaultOptions(t *testing.T) {
 
 func TestRecoveryLoggerWithCustomLogger(t *testing.T) {
 	var buf bytes.Buffer
-	var logger = log.New(&buf, "", log.LstdFlags)
+	logger := log.New(&buf, "", log.LstdFlags)
 
 	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		panic("Unexpected error!")
@@ -38,7 +38,7 @@ func TestRecoveryLoggerWithCustomLogger(t *testing.T) {
 		handler := RecoveryHandler(RecoveryLogger(logger), PrintRecoveryStack(false))
 
 		recovery := handler(handlerFunc)
-		recovery.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+		recovery.ServeHTTP(httptest.NewRecorder(), newRequest(http.MethodGet, "/subdir/asdf"))
 
 		if !strings.Contains(buf.String(), "Unexpected error!") {
 			t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "Unexpected error!")
@@ -49,7 +49,7 @@ func TestRecoveryLoggerWithCustomLogger(t *testing.T) {
 		handler := RecoveryHandler(RecoveryLogger(logger), PrintRecoveryStack(true))
 
 		recovery := handler(handlerFunc)
-		recovery.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+		recovery.ServeHTTP(httptest.NewRecorder(), newRequest(http.MethodGet, "/subdir/asdf"))
 
 		if !strings.Contains(buf.String(), "runtime/debug.Stack") {
 			t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "runtime/debug.Stack")
