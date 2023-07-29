@@ -97,7 +97,7 @@ func isContentType(h http.Header, contentType string) bool {
 // Only PUT, POST, and PATCH requests are considered.
 func ContentTypeHandler(h http.Handler, contentTypes ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !(r.Method == "PUT" || r.Method == http.MethodPost || r.Method == "PATCH") {
+		if !(r.Method == http.MethodPut || r.Method == http.MethodPost || r.Method == http.MethodPatch) {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -141,7 +141,7 @@ func HTTPMethodOverrideHandler(h http.Handler) http.Handler {
 			if om == "" {
 				om = r.Header.Get(HTTPMethodOverrideHeader)
 			}
-			if om == "PUT" || om == "PATCH" || om == "DELETE" {
+			if om == http.MethodPut || om == http.MethodPatch || om == http.MethodDelete {
 				r.Method = om
 			}
 		}

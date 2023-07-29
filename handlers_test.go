@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -19,7 +20,10 @@ const (
 )
 
 var okHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-	w.Write([]byte(ok)) //nolint:errcheck // this error is safe to ignore in unit test
+	_, err := w.Write([]byte(ok))
+	if err != nil {
+		log.Fatalf("error on writing to http.ResponseWriter: %v", err)
+	}
 })
 
 func newRequest(method, url string) *http.Request {
@@ -40,7 +44,7 @@ func TestMethodHandler(t *testing.T) {
 	}{
 		// No handlers
 		{newRequest(http.MethodGet, "/foo"), MethodHandler{}, http.StatusMethodNotAllowed, "", notAllowed},
-		{newRequest("OPTIONS", "/foo"), MethodHandler{}, http.StatusOK, "", ""},
+		{newRequest(http.MethodOptions, "/foo"), MethodHandler{}, http.StatusOK, "", ""},
 
 		// A single handler
 		{newRequest(http.MethodGet, "/foo"), MethodHandler{http.MethodGet: okHandler}, http.StatusOK, "", ok},
@@ -49,11 +53,11 @@ func TestMethodHandler(t *testing.T) {
 		// Multiple handlers
 		{newRequest(http.MethodGet, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "", ok},
 		{newRequest(http.MethodPost, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "", ok},
-		{newRequest("DELETE", "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusMethodNotAllowed, "GET, POST", notAllowed},
-		{newRequest("OPTIONS", "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "GET, POST", ""},
+		{newRequest(http.MethodDelete, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusMethodNotAllowed, "GET, POST", notAllowed},
+		{newRequest(http.MethodOptions, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "GET, POST", ""},
 
 		// Override OPTIONS
-		{newRequest("OPTIONS", "/foo"), MethodHandler{"OPTIONS": okHandler}, http.StatusOK, "", ok},
+		{newRequest(http.MethodOptions, "/foo"), MethodHandler{http.MethodOptions: okHandler}, http.StatusOK, "", ok},
 	}
 
 	for i, test := range tests {
@@ -115,14 +119,14 @@ func TestHTTPMethodOverride(t *testing.T) {
 		OverrideMethod string
 		ExpectedMethod string
 	}{
-		{http.MethodPost, "PUT", "PUT"},
-		{http.MethodPost, "PATCH", "PATCH"},
-		{http.MethodPost, "DELETE", "DELETE"},
-		{"PUT", "DELETE", "PUT"},
+		{http.MethodPost, http.MethodPut, http.MethodPut},
+		{http.MethodPost, http.MethodPatch, http.MethodPatch},
+		{http.MethodPost, http.MethodDelete, http.MethodDelete},
+		{http.MethodPut, http.MethodDelete, http.MethodPut},
 		{http.MethodGet, http.MethodGet, http.MethodGet},
-		{"HEAD", "HEAD", "HEAD"},
-		{http.MethodGet, "PUT", http.MethodGet},
-		{"HEAD", "DELETE", "HEAD"},
+		{http.MethodHead, http.MethodHead, http.MethodHead},
+		{http.MethodGet, http.MethodPut, http.MethodGet},
+		{http.MethodHead, http.MethodDelete, http.MethodHead},
 	}
 
 	for _, test := range tests {

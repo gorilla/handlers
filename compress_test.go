@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +27,10 @@ func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 		w.Header().Set("Content-Length", strconv.Itoa(9*1024))
 		w.Header().Set("Content-Type", contentType)
 		for i := 0; i < 1024; i++ {
-			io.WriteString(w, "Gorilla!\n") //nolint:errcheck // this error is safe to ignore in unit test
+			_, err := io.WriteString(w, "Gorilla!\n")
+			if err != nil {
+				log.Printf("error on writting to http.ResponseWriter: %v\n", err)
+			}
 		}
 	})).ServeHTTP(w, &http.Request{
 		Method: http.MethodGet,

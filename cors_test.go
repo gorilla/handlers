@@ -36,7 +36,7 @@ func TestDefaultCORSHandlerReturnsOkWithOrigin(t *testing.T) {
 }
 
 func TestCORSHandlerIgnoreOptionsFallsThrough(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 
 	rr := httptest.NewRecorder()
@@ -75,7 +75,7 @@ func TestCORSHandlerSetsExposedHeaders(t *testing.T) {
 }
 
 func TestCORSHandlerUnsetRequestMethodForPreflightBadRequest(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 
 	rr := httptest.NewRecorder()
@@ -90,9 +90,9 @@ func TestCORSHandlerUnsetRequestMethodForPreflightBadRequest(t *testing.T) {
 }
 
 func TestCORSHandlerInvalidRequestMethodForPreflightMethodNotAllowed(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
-	r.Header.Set(corsRequestMethodHeader, "DELETE")
+	r.Header.Set(corsRequestMethodHeader, http.MethodDelete)
 
 	rr := httptest.NewRecorder()
 
@@ -107,7 +107,7 @@ func TestCORSHandlerInvalidRequestMethodForPreflightMethodNotAllowed(t *testing.
 }
 
 func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandler(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, http.MethodGet)
 
@@ -127,7 +127,7 @@ func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandler(t *testing.T) {
 
 func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWithCustomStatusCode(t *testing.T) {
 	statusCode := http.StatusNoContent
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, http.MethodGet)
 
@@ -146,7 +146,7 @@ func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWithCustomStatusCo
 }
 
 func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWhenOriginNotAllowed(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, http.MethodGet)
 
@@ -165,9 +165,9 @@ func TestCORSHandlerOptionsRequestMustNotBePassedToNextHandlerWhenOriginNotAllow
 }
 
 func TestCORSHandlerAllowedMethodForPreflight(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
-	r.Header.Set(corsRequestMethodHeader, "DELETE")
+	r.Header.Set(corsRequestMethodHeader, http.MethodDelete)
 
 	rc := httptest.NewRecorder()
 
@@ -181,14 +181,14 @@ func TestCORSHandlerAllowedMethodForPreflight(t *testing.T) {
 	}
 
 	header := resp.Header.Get(corsAllowMethodsHeader)
-	if got, want := header, "DELETE"; got != want {
-		t.Fatalf("bad header: expected %q method header, got %q header.", want, got)
+	if header != http.MethodDelete {
+		t.Fatalf("bad header: expected %q method header, got %q header.", http.MethodDelete, header)
 	}
 }
 
 func TestCORSHandlerAllowMethodsNotSetForSimpleRequestPreflight(t *testing.T) {
 	for _, method := range defaultCorsMethods {
-		r := newRequest("OPTIONS", "http://www.example.com/")
+		r := newRequest(http.MethodOptions, "http://www.example.com/")
 		r.Header.Set("Origin", r.URL.String())
 		r.Header.Set(corsRequestMethodHeader, method)
 
@@ -212,7 +212,7 @@ func TestCORSHandlerAllowMethodsNotSetForSimpleRequestPreflight(t *testing.T) {
 
 func TestCORSHandlerAllowedHeaderNotSetForSimpleRequestPreflight(t *testing.T) {
 	for _, simpleHeader := range defaultCorsHeaders {
-		r := newRequest("OPTIONS", "http://www.example.com/")
+		r := newRequest(http.MethodOptions, "http://www.example.com/")
 		r.Header.Set("Origin", r.URL.String())
 		r.Header.Set(corsRequestMethodHeader, http.MethodGet)
 		r.Header.Set(corsRequestHeadersHeader, simpleHeader)
@@ -236,7 +236,7 @@ func TestCORSHandlerAllowedHeaderNotSetForSimpleRequestPreflight(t *testing.T) {
 }
 
 func TestCORSHandlerAllowedHeaderForPreflight(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, http.MethodPost)
 	r.Header.Set(corsRequestHeadersHeader, "Content-Type")
@@ -259,7 +259,7 @@ func TestCORSHandlerAllowedHeaderForPreflight(t *testing.T) {
 }
 
 func TestCORSHandlerInvalidHeaderForPreflightForbidden(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, http.MethodPost)
 	r.Header.Set(corsRequestHeadersHeader, "Content-Type")
@@ -277,7 +277,7 @@ func TestCORSHandlerInvalidHeaderForPreflightForbidden(t *testing.T) {
 }
 
 func TestCORSHandlerMaxAgeForPreflight(t *testing.T) {
-	r := newRequest("OPTIONS", "http://www.example.com/")
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
 	r.Header.Set(corsRequestMethodHeader, http.MethodPost)
 
