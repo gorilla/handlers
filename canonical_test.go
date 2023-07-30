@@ -32,7 +32,7 @@ func TestCanonicalHost(t *testing.T) {
 	gorilla := "http://www.gorillatoolkit.org"
 
 	rr := httptest.NewRecorder()
-	r := newRequest("GET", "http://www.example.com/")
+	r := newRequest(http.MethodGet, "http://www.example.com/")
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
@@ -46,7 +46,6 @@ func TestCanonicalHost(t *testing.T) {
 	if rr.Header().Get("Location") != gorilla+r.URL.Path {
 		t.Fatalf("bad re-direct: got %q want %q", rr.Header().Get("Location"), gorilla+r.URL.Path)
 	}
-
 }
 
 func TestKeepsQueryString(t *testing.T) {
@@ -54,7 +53,7 @@ func TestKeepsQueryString(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	querystring := url.Values{"q": {"golang"}, "format": {"json"}}.Encode()
-	r := newRequest("GET", "http://www.example.com/search?"+querystring)
+	r := newRequest(http.MethodGet, "http://www.example.com/search?"+querystring)
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	CanonicalHost(google, http.StatusFound)(testHandler).ServeHTTP(rr, r)
@@ -67,7 +66,7 @@ func TestKeepsQueryString(t *testing.T) {
 
 func TestBadDomain(t *testing.T) {
 	rr := httptest.NewRecorder()
-	r := newRequest("GET", "http://www.example.com/")
+	r := newRequest(http.MethodGet, "http://www.example.com/")
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
@@ -81,7 +80,7 @@ func TestBadDomain(t *testing.T) {
 
 func TestEmptyHost(t *testing.T) {
 	rr := httptest.NewRecorder()
-	r := newRequest("GET", "http://www.example.com/")
+	r := newRequest(http.MethodGet, "http://www.example.com/")
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
@@ -97,7 +96,7 @@ func TestHeaderWrites(t *testing.T) {
 	gorilla := "http://www.gorillatoolkit.org"
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 
 	// Catch the log output to ensure we don't write multiple headers.

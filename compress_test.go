@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -27,10 +27,13 @@ func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 		w.Header().Set("Content-Length", strconv.Itoa(9*1024))
 		w.Header().Set("Content-Type", contentType)
 		for i := 0; i < 1024; i++ {
-			io.WriteString(w, "Gorilla!\n")
+			_, err := io.WriteString(w, "Gorilla!\n")
+			if err != nil {
+				log.Printf("error on writting to http.ResponseWriter: %v\n", err)
+			}
 		}
 	})).ServeHTTP(w, &http.Request{
-		Method: "GET",
+		Method: http.MethodGet,
 		Header: http.Header{
 			acceptEncoding: []string{compression},
 		},
@@ -40,19 +43,20 @@ func compressedRequest(w *httptest.ResponseRecorder, compression string) {
 func TestCompressHandlerNoCompression(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressedRequest(w, "")
-	if enc := w.HeaderMap.Get("Content-Encoding"); enc != "" {
+	resp := w.Result()
+	if enc := resp.Header.Get("Content-Encoding"); enc != "" {
 		t.Errorf("wrong content encoding, got %q want %q", enc, "")
 	}
-	if ct := w.HeaderMap.Get("Content-Type"); ct != contentType {
+	if ct := resp.Header.Get("Content-Type"); ct != contentType {
 		t.Errorf("wrong content type, got %q want %q", ct, contentType)
 	}
 	if w.Body.Len() != 1024*9 {
 		t.Errorf("wrong len, got %d want %d", w.Body.Len(), 1024*9)
 	}
-	if l := w.HeaderMap.Get("Content-Length"); l != "9216" {
+	if l := resp.Header.Get("Content-Length"); l != "9216" {
 		t.Errorf("wrong content-length. got %q expected %d", l, 1024*9)
 	}
-	if v := w.HeaderMap.Get("Vary"); v != acceptEncoding {
+	if v := resp.Header.Get("Vary"); v != acceptEncoding {
 		t.Errorf("wrong vary. got %s expected %s", v, acceptEncoding)
 	}
 }
@@ -114,7 +118,7 @@ func TestAcceptEncodingIsDropped(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		ch.ServeHTTP(w, &http.Request{
-			Method: "GET",
+			Method: http.MethodGet,
 			Header: http.Header{
 				acceptEncoding: []string{tCase.compression},
 			},
@@ -125,16 +129,17 @@ func TestAcceptEncodingIsDropped(t *testing.T) {
 func TestCompressHandlerGzip(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressedRequest(w, "gzip")
-	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
-		t.Errorf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "gzip")
+	resp := w.Result()
+	if resp.Header.Get("Content-Encoding") != "gzip" {
+		t.Errorf("wrong content encoding, got %q want %q", resp.Header.Get("Content-Encoding"), "gzip")
 	}
-	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
-		t.Errorf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
+	if resp.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
+		t.Errorf("wrong content type, got %s want %s", resp.Header.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
 	if w.Body.Len() != 72 {
 		t.Errorf("wrong len, got %d want %d", w.Body.Len(), 72)
 	}
-	if l := w.HeaderMap.Get("Content-Length"); l != "" {
+	if l := resp.Header.Get("Content-Length"); l != "" {
 		t.Errorf("wrong content-length. got %q expected %q", l, "")
 	}
 }
@@ -142,11 +147,12 @@ func TestCompressHandlerGzip(t *testing.T) {
 func TestCompressHandlerDeflate(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressedRequest(w, "deflate")
-	if w.HeaderMap.Get("Content-Encoding") != "deflate" {
-		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "deflate")
+	resp := w.Result()
+	if resp.Header.Get("Content-Encoding") != "deflate" {
+		t.Fatalf("wrong content encoding, got %q want %q", resp.Header.Get("Content-Encoding"), "deflate")
 	}
-	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
-		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
+	if resp.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
+		t.Fatalf("wrong content type, got %s want %s", resp.Header.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
 	if w.Body.Len() != 54 {
 		t.Fatalf("wrong len, got %d want %d", w.Body.Len(), 54)
@@ -156,11 +162,12 @@ func TestCompressHandlerDeflate(t *testing.T) {
 func TestCompressHandlerGzipDeflate(t *testing.T) {
 	w := httptest.NewRecorder()
 	compressedRequest(w, "gzip, deflate ")
-	if w.HeaderMap.Get("Content-Encoding") != "gzip" {
-		t.Fatalf("wrong content encoding, got %q want %q", w.HeaderMap.Get("Content-Encoding"), "gzip")
+	resp := w.Result()
+	if resp.Header.Get("Content-Encoding") != "gzip" {
+		t.Fatalf("wrong content encoding, got %q want %q", resp.Header.Get("Content-Encoding"), "gzip")
 	}
-	if w.HeaderMap.Get("Content-Type") != "text/plain; charset=utf-8" {
-		t.Fatalf("wrong content type, got %s want %s", w.HeaderMap.Get("Content-Type"), "text/plain; charset=utf-8")
+	if resp.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
+		t.Fatalf("wrong content type, got %s want %s", resp.Header.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
 }
 
@@ -168,13 +175,13 @@ func TestCompressHandlerGzipDeflate(t *testing.T) {
 // to use a real http server to trigger the net/http sendfile special
 // case.
 func TestCompressFile(t *testing.T) {
-	dir, err := ioutil.TempDir("", "gorilla_compress")
+	dir, err := os.MkdirTemp("", "gorilla_compress")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
 
-	err = ioutil.WriteFile(filepath.Join(dir, "hello.txt"), []byte("hello"), 0644)
+	err = os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("hello"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +190,7 @@ func TestCompressFile(t *testing.T) {
 	defer s.Close()
 
 	url := &url.URL{Scheme: "http", Host: s.Listener.Addr().String(), Path: "/hello.txt"}
-	req, err := http.NewRequest("GET", url.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,26 +239,17 @@ func (fullyFeaturedResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error)
 	return nil, nil, nil
 }
 
-// CloseNotify implements the http.CloseNotifier interface.
-func (fullyFeaturedResponseWriter) CloseNotify() <-chan bool {
-	return nil
-}
-
 func TestCompressHandlerPreserveInterfaces(t *testing.T) {
 	// Compile time validation fullyFeaturedResponseWriter implements all the
 	// interfaces we're asserting in the test case below.
 	var (
-		_ http.Flusher       = fullyFeaturedResponseWriter{}
-		_ http.CloseNotifier = fullyFeaturedResponseWriter{}
-		_ http.Hijacker      = fullyFeaturedResponseWriter{}
+		_ http.Flusher  = fullyFeaturedResponseWriter{}
+		_ http.Hijacker = fullyFeaturedResponseWriter{}
 	)
 	var h http.Handler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		comp := r.Header.Get(acceptEncoding)
 		if _, ok := rw.(http.Flusher); !ok {
 			t.Errorf("ResponseWriter lost http.Flusher interface for %q", comp)
-		}
-		if _, ok := rw.(http.CloseNotifier); !ok {
-			t.Errorf("ResponseWriter lost http.CloseNotifier interface for %q", comp)
 		}
 		if _, ok := rw.(http.Hijacker); !ok {
 			t.Errorf("ResponseWriter lost http.Hijacker interface for %q", comp)
@@ -259,7 +257,7 @@ func TestCompressHandlerPreserveInterfaces(t *testing.T) {
 	})
 	h = CompressHandler(h)
 	var rw fullyFeaturedResponseWriter
-	r, err := http.NewRequest("GET", "/", nil)
+	r, err := http.NewRequest(http.MethodGet, "/", nil)
 	if err != nil {
 		t.Fatalf("Failed to create test request: %v", err)
 	}
@@ -291,7 +289,7 @@ func TestCompressHandlerDoesntInventInterfaces(t *testing.T) {
 	h = CompressHandler(h)
 
 	var rw paltryResponseWriter
-	r, err := http.NewRequest("GET", "/", nil)
+	r, err := http.NewRequest(http.MethodGet, "/", nil)
 	if err != nil {
 		t.Fatalf("Failed to create test request: %v", err)
 	}

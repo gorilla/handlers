@@ -33,7 +33,8 @@ func TestGetIP(t *testing.T) {
 		req := &http.Request{
 			Header: http.Header{
 				v.key: []string{v.val},
-			}}
+			},
+		}
 		res := getIP(req)
 		if res != v.expected {
 			t.Fatalf("wrong header for %s: got %s want %s", v.key, res,
@@ -70,10 +71,10 @@ func TestGetScheme(t *testing.T) {
 	}
 }
 
-// Test the middleware end-to-end
+// Test the middleware end-to-end.
 func TestProxyHeaders(t *testing.T) {
 	rr := httptest.NewRecorder()
-	r := newRequest("GET", "/")
+	r := newRequest(http.MethodGet, "/")
 
 	r.Header.Set(xForwardedFor, "8.8.8.8")
 	r.Header.Set(xForwardedProto, "https")
@@ -107,5 +108,4 @@ func TestProxyHeaders(t *testing.T) {
 		t.Fatalf("wrong address: got %s want %s", host,
 			r.Header.Get(xForwardedHost))
 	}
-
 }

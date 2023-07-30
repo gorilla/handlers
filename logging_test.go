@@ -6,10 +6,11 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
+	"io/fs"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -34,7 +35,11 @@ func TestMakeLogger(t *testing.T) {
 		t.Fatalf("wrong status, got %d want %d", logger.Status(), http.StatusInternalServerError)
 	}
 	// Write
-	w.Write([]byte(ok))
+	_, err := w.Write([]byte(ok))
+	if err != nil {
+		t.Fatalf("error while writing to http.ResponseWriter %v", err)
+		return
+	}
 	if logger.Size() != len(ok) {
 		t.Fatalf("wrong size, got %d want %d", logger.Size(), len(ok))
 	}
@@ -46,8 +51,6 @@ func TestMakeLogger(t *testing.T) {
 }
 
 func TestLoggerCleanup(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
-
 	rbuf := make([]byte, 128)
 	if _, err := rand.Read(rbuf); err != nil {
 		t.Fatalf("Failed to generate random content: %v", err)
@@ -68,7 +71,7 @@ Content-Disposition: form-data; name="buzz"; filename="example.txt"
 		t.Fatalf("Failed to read multipart form: %v", err)
 	}
 
-	tmpFiles, err := ioutil.ReadDir(os.TempDir())
+	tmpFiles, err := os.ReadDir(os.TempDir())
 	if err != nil {
 		t.Fatalf("Failed to list %s: %v", os.TempDir(), err)
 	}
@@ -80,14 +83,13 @@ Content-Disposition: form-data; name="buzz"; filename="example.txt"
 		}
 
 		path := filepath.Join(os.TempDir(), f.Name())
-		switch b, err := ioutil.ReadFile(path); {
-		case err != nil:
+		switch b, fileError := os.ReadFile(path); {
+		case fileError != nil:
 			t.Fatalf("Failed to read %s: %v", path, err)
 		case string(b) != contents:
 			continue
 		default:
 			tmpFile = path
-			break
 		}
 	}
 
@@ -95,19 +97,19 @@ Content-Disposition: form-data; name="buzz"; filename="example.txt"
 		t.Fatal("Could not find multipart form tmp file")
 	}
 
-	req := newRequest("GET", "/subdir/asdf")
+	req := newRequest(http.MethodGet, "/subdir/asdf")
 	req.MultipartForm = form
 
 	var buf bytes.Buffer
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		req.URL.Path = "/" // simulate http.StripPrefix and friends
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	logger := LoggingHandler(&buf, handler)
 	logger.ServeHTTP(httptest.NewRecorder(), req)
 
-	if _, err := os.Stat(tmpFile); err == nil || !os.IsNotExist(err) {
-		t.Fatalf("Expected %s to not exist, got %v", tmpFile, err)
+	if _, osStatErr := os.Stat(tmpFile); osStatErr == nil || !errors.Is(osStatErr, fs.ErrNotExist) {
+		t.Fatalf("Expected %s to not exist, got %v", tmpFile, osStatErr)
 	}
 }
 
@@ -116,11 +118,11 @@ func TestLogPathRewrites(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		req.URL.Path = "/" // simulate http.StripPrefix and friends
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	logger := LoggingHandler(&buf, handler)
 
-	logger.ServeHTTP(httptest.NewRecorder(), newRequest("GET", "/subdir/asdf"))
+	logger.ServeHTTP(httptest.NewRecorder(), newRequest(http.MethodGet, "/subdir/asdf"))
 
 	if !strings.Contains(buf.String(), "GET /subdir/asdf HTTP") {
 		t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "GET /subdir/asdf HTTP")
@@ -132,9 +134,9 @@ func BenchmarkWriteLog(b *testing.B) {
 	if err != nil {
 		b.Fatalf(err.Error())
 	}
-	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	ts := time.Date(1983, 0o5, 26, 3, 30, 45, 0, loc)
 
-	req := newRequest("GET", "http://example.com")
+	req := newRequest(http.MethodGet, "http://example.com")
 	req.RemoteAddr = "192.168.100.5"
 
 	b.ResetTimer()
@@ -216,7 +218,7 @@ func LoggingScenario1(t *testing.T, formatter LogFormatter, expected string) {
 	if err != nil {
 		panic(err)
 	}
-	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	ts := time.Date(1983, 0o5, 26, 3, 30, 45, 0, loc)
 
 	// A typical request with an OK response
 	req := constructTypicalRequestOk()
@@ -243,7 +245,7 @@ func LoggingScenario2(t *testing.T, formatter LogFormatter, expected string) {
 	if err != nil {
 		panic(err)
 	}
-	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	ts := time.Date(1983, 0o5, 26, 3, 30, 45, 0, loc)
 
 	// CONNECT request over http/2.0
 	req := constructConnectRequest()
@@ -269,7 +271,7 @@ func LoggingScenario3(t *testing.T, formatter LogFormatter, expected string) {
 	if err != nil {
 		panic(err)
 	}
-	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	ts := time.Date(1983, 0o5, 26, 3, 30, 45, 0, loc)
 
 	// Request with an unauthorized user
 	req := constructTypicalRequestOk()
@@ -296,7 +298,7 @@ func LoggingScenario4(t *testing.T, formatter LogFormatter, expected string) {
 	if err != nil {
 		panic(err)
 	}
-	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	ts := time.Date(1983, 0o5, 26, 3, 30, 45, 0, loc)
 
 	// Request with url encoded parameters
 	req := constructEncodedRequest()
@@ -322,7 +324,7 @@ func LoggingScenario5(t *testing.T, formatter LogFormatter, expected string) {
 	if err != nil {
 		panic(err)
 	}
-	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	ts := time.Date(1983, 0o5, 26, 3, 30, 45, 0, loc)
 
 	req := constructTypicalRequestOk()
 	req.URL.User = url.User("kamil")
@@ -344,9 +346,9 @@ func LoggingScenario5(t *testing.T, formatter LogFormatter, expected string) {
 	}
 }
 
-// A typical request with an OK response
+// A typical request with an OK response.
 func constructTypicalRequestOk() *http.Request {
-	req := newRequest("GET", "http://example.com")
+	req := newRequest(http.MethodGet, "http://example.com")
 	req.RemoteAddr = "192.168.100.5"
 	req.Header.Set("Referer", "http://example.com")
 	req.Header.Set(
@@ -357,10 +359,10 @@ func constructTypicalRequestOk() *http.Request {
 	return req
 }
 
-// CONNECT request over http/2.0
+// CONNECT request over http/2.0.
 func constructConnectRequest() *http.Request {
 	req := &http.Request{
-		Method:     "CONNECT",
+		Method:     http.MethodConnect,
 		Host:       "www.example.com:443",
 		Proto:      "HTTP/2.0",
 		ProtoMajor: 2,
