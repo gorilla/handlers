@@ -1,5 +1,5 @@
-gorilla/handlers
-================
+# gorilla/handlers
+
 ![Testing](https://github.com/gorilla/handlers/actions/workflows/test.yml/badge.svg)
 [![Codecov](https://codecov.io/github/gorilla/handlers/branch/main/graph/badge.svg)](https://codecov.io/github/gorilla/handlers)
 [![GoDoc](https://godoc.org/github.com/gorilla/handlers?status.svg)](https://godoc.org/github.com/gorilla/handlers)
