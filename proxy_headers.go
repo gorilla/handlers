@@ -69,13 +69,13 @@ func getIP(r *http.Request) string {
 
 	if fwd := r.Header.Get(xForwardedFor); fwd != "" {
 		// Only grab the first (client) address. Note that '192.168.0.1,
-		// 10.1.1.1' is a valid key for X-Forwarded-For where addresses after
+		// 10.1.1.1' is a valid value for X-Forwarded-For where addresses after
 		// the first may represent forwarding proxies earlier in the chain.
-		s := strings.Index(fwd, ", ")
+		s := strings.Index(fwd, ",")
 		if s == -1 {
 			s = len(fwd)
 		}
-		addr = fwd[:s]
+		addr = strings.TrimSpace(fwd[:s])
 	} else if fwd := r.Header.Get(xRealIP); fwd != "" {
 		// X-Real-IP should only contain one IP address (the client making the
 		// request).
