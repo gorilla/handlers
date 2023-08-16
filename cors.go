@@ -26,14 +26,14 @@ type cors struct {
 type OriginValidator func(string) bool
 
 var (
-	defaultCorsOptionStatusCode = 200
-	defaultCorsMethods          = []string{http.MethodGet, "HEAD", http.MethodPost}
+	defaultCorsOptionStatusCode = http.StatusOK
+	defaultCorsMethods          = []string{http.MethodGet, http.MethodHead, http.MethodPost}
 	defaultCorsHeaders          = []string{"Accept", "Accept-Language", "Content-Language", "Origin"}
 	// (WebKit/Safari v9 sends the Origin header by default in AJAX requests).
 )
 
 const (
-	corsOptionMethod           string = "OPTIONS"
+	corsOptionMethod           string = http.MethodOptions
 	corsAllowOriginHeader      string = "Access-Control-Allow-Origin"
 	corsExposeHeadersHeader    string = "Access-Control-Expose-Headers"
 	corsMaxAgeHeader           string = "Access-Control-Max-Age"
