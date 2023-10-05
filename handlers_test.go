@@ -5,6 +5,8 @@
 package handlers
 
 import (
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -18,7 +20,10 @@ const (
 )
 
 var okHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-	w.Write([]byte(ok))
+	_, err := w.Write([]byte(ok))
+	if err != nil {
+		log.Fatalf("error on writing to http.ResponseWriter: %v", err)
+	}
 })
 
 func newRequest(method, url string) *http.Request {
@@ -38,33 +43,39 @@ func TestMethodHandler(t *testing.T) {
 		body    string
 	}{
 		// No handlers
-		{newRequest("GET", "/foo"), MethodHandler{}, http.StatusMethodNotAllowed, "", notAllowed},
-		{newRequest("OPTIONS", "/foo"), MethodHandler{}, http.StatusOK, "", ""},
+		{newRequest(http.MethodGet, "/foo"), MethodHandler{}, http.StatusMethodNotAllowed, "", notAllowed},
+		{newRequest(http.MethodOptions, "/foo"), MethodHandler{}, http.StatusOK, "", ""},
 
 		// A single handler
-		{newRequest("GET", "/foo"), MethodHandler{"GET": okHandler}, http.StatusOK, "", ok},
-		{newRequest("POST", "/foo"), MethodHandler{"GET": okHandler}, http.StatusMethodNotAllowed, "GET", notAllowed},
+		{newRequest(http.MethodGet, "/foo"), MethodHandler{http.MethodGet: okHandler}, http.StatusOK, "", ok},
+		{newRequest(http.MethodPost, "/foo"), MethodHandler{http.MethodGet: okHandler}, http.StatusMethodNotAllowed, http.MethodGet, notAllowed},
 
 		// Multiple handlers
-		{newRequest("GET", "/foo"), MethodHandler{"GET": okHandler, "POST": okHandler}, http.StatusOK, "", ok},
-		{newRequest("POST", "/foo"), MethodHandler{"GET": okHandler, "POST": okHandler}, http.StatusOK, "", ok},
-		{newRequest("DELETE", "/foo"), MethodHandler{"GET": okHandler, "POST": okHandler}, http.StatusMethodNotAllowed, "GET, POST", notAllowed},
-		{newRequest("OPTIONS", "/foo"), MethodHandler{"GET": okHandler, "POST": okHandler}, http.StatusOK, "GET, POST", ""},
+		{newRequest(http.MethodGet, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "", ok},
+		{newRequest(http.MethodPost, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "", ok},
+		{newRequest(http.MethodDelete, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusMethodNotAllowed, "GET, POST", notAllowed},
+		{newRequest(http.MethodOptions, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "GET, POST", ""},
 
 		// Override OPTIONS
-		{newRequest("OPTIONS", "/foo"), MethodHandler{"OPTIONS": okHandler}, http.StatusOK, "", ok},
+		{newRequest(http.MethodOptions, "/foo"), MethodHandler{http.MethodOptions: okHandler}, http.StatusOK, "", ok},
 	}
 
 	for i, test := range tests {
 		rec := httptest.NewRecorder()
 		test.handler.ServeHTTP(rec, test.req)
-		if rec.Code != test.code {
-			t.Fatalf("%d: wrong code, got %d want %d", i, rec.Code, test.code)
+		resp := rec.Result()
+		if resp.StatusCode != test.code {
+			t.Fatalf("%d: wrong code, got %d want %d", i, resp.StatusCode, test.code)
 		}
-		if allow := rec.HeaderMap.Get("Allow"); allow != test.allow {
+		if allow := resp.Header.Get("Allow"); allow != test.allow {
 			t.Fatalf("%d: wrong Allow, got %s want %s", i, allow, test.allow)
 		}
-		if body := rec.Body.String(); body != test.body {
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Errorf("io error while reading response body %v", err)
+		}
+		if body := string(respBodyBytes); body != test.body {
 			t.Fatalf("%d: wrong body, got %q want %q", i, body, test.body)
 		}
 	}
@@ -77,13 +88,13 @@ func TestContentTypeHandler(t *testing.T) {
 		ContentType       string
 		Code              int
 	}{
-		{"POST", []string{"application/json"}, "application/json", http.StatusOK},
-		{"POST", []string{"application/json", "application/xml"}, "application/json", http.StatusOK},
-		{"POST", []string{"application/json"}, "application/json; charset=utf-8", http.StatusOK},
-		{"POST", []string{"application/json"}, "application/json+xxx", http.StatusUnsupportedMediaType},
-		{"POST", []string{"application/json"}, "text/plain", http.StatusUnsupportedMediaType},
-		{"GET", []string{"application/json"}, "", http.StatusOK},
-		{"GET", []string{}, "", http.StatusOK},
+		{http.MethodPost, []string{"application/json"}, "application/json", http.StatusOK},
+		{http.MethodPost, []string{"application/json", "application/xml"}, "application/json", http.StatusOK},
+		{http.MethodPost, []string{"application/json"}, "application/json; charset=utf-8", http.StatusOK},
+		{http.MethodPost, []string{"application/json"}, "application/json+xxx", http.StatusUnsupportedMediaType},
+		{http.MethodPost, []string{"application/json"}, "text/plain", http.StatusUnsupportedMediaType},
+		{http.MethodGet, []string{"application/json"}, "", http.StatusOK},
+		{http.MethodGet, []string{}, "", http.StatusOK},
 	}
 	for _, test := range tests {
 		r, err := http.NewRequest(test.Method, "/", nil)
@@ -103,19 +114,19 @@ func TestContentTypeHandler(t *testing.T) {
 }
 
 func TestHTTPMethodOverride(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		Method         string
 		OverrideMethod string
 		ExpectedMethod string
 	}{
-		{"POST", "PUT", "PUT"},
-		{"POST", "PATCH", "PATCH"},
-		{"POST", "DELETE", "DELETE"},
-		{"PUT", "DELETE", "PUT"},
-		{"GET", "GET", "GET"},
-		{"HEAD", "HEAD", "HEAD"},
-		{"GET", "PUT", "GET"},
-		{"HEAD", "DELETE", "HEAD"},
+		{http.MethodPost, http.MethodPut, http.MethodPut},
+		{http.MethodPost, http.MethodPatch, http.MethodPatch},
+		{http.MethodPost, http.MethodDelete, http.MethodDelete},
+		{http.MethodPut, http.MethodDelete, http.MethodPut},
+		{http.MethodGet, http.MethodGet, http.MethodGet},
+		{http.MethodHead, http.MethodHead, http.MethodHead},
+		{http.MethodGet, http.MethodPut, http.MethodGet},
+		{http.MethodHead, http.MethodDelete, http.MethodHead},
 	}
 
 	for _, test := range tests {

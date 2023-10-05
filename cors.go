@@ -26,14 +26,14 @@ type cors struct {
 type OriginValidator func(string) bool
 
 var (
-	defaultCorsOptionStatusCode = 200
-	defaultCorsMethods          = []string{"GET", "HEAD", "POST"}
+	defaultCorsOptionStatusCode = http.StatusOK
+	defaultCorsMethods          = []string{http.MethodGet, http.MethodHead, http.MethodPost}
 	defaultCorsHeaders          = []string{"Accept", "Accept-Language", "Content-Language", "Origin"}
-	// (WebKit/Safari v9 sends the Origin header by default in AJAX requests)
+	// (WebKit/Safari v9 sends the Origin header by default in AJAX requests).
 )
 
 const (
-	corsOptionMethod           string = "OPTIONS"
+	corsOptionMethod           string = http.MethodOptions
 	corsAllowOriginHeader      string = "Access-Control-Allow-Origin"
 	corsExposeHeadersHeader    string = "Access-Control-Expose-Headers"
 	corsMaxAgeHeader           string = "Access-Control-Max-Age"
@@ -101,10 +101,8 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !ch.isMatch(method, defaultCorsMethods) {
 			w.Header().Set(corsAllowMethodsHeader, method)
 		}
-	} else {
-		if len(ch.exposedHeaders) > 0 {
-			w.Header().Set(corsExposeHeadersHeader, strings.Join(ch.exposedHeaders, ","))
-		}
+	} else if len(ch.exposedHeaders) > 0 {
+		w.Header().Set(corsExposeHeadersHeader, strings.Join(ch.exposedHeaders, ","))
 	}
 
 	if ch.allowCredentials {
@@ -173,7 +171,7 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 	}
 
 	for _, option := range opts {
-		option(ch)
+		_ = option(ch) //TODO: @bharat-rajani, return error to caller if not nil?
 	}
 
 	return ch
