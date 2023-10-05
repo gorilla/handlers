@@ -16,7 +16,7 @@ type cors struct {
 	allowedOrigins         []string
 	allowedOriginValidator OriginValidator
 	exposedHeaders         []string
-	maxAge                 int
+	maxAge                 *int
 	ignoreOptions          bool
 	allowCredentials       bool
 	optionStatusCode       int
@@ -94,8 +94,8 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(corsAllowHeadersHeader, strings.Join(allowedHeaders, ","))
 		}
 
-		if ch.maxAge > 0 {
-			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(ch.maxAge))
+		if ch.maxAge != nil {
+			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(*ch.maxAge))
 		}
 
 		if !ch.isMatch(method, defaultCorsMethods) {
@@ -141,22 +141,21 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // CORS provides Cross-Origin Resource Sharing middleware.
 // Example:
 //
-//  import (
-//      "net/http"
+//	import (
+//	    "net/http"
 //
-//      "github.com/gorilla/handlers"
-//      "github.com/gorilla/mux"
-//  )
+//	    "github.com/gorilla/handlers"
+//	    "github.com/gorilla/mux"
+//	)
 //
-//  func main() {
-//      r := mux.NewRouter()
-//      r.HandleFunc("/users", UserEndpoint)
-//      r.HandleFunc("/projects", ProjectEndpoint)
+//	func main() {
+//	    r := mux.NewRouter()
+//	    r.HandleFunc("/users", UserEndpoint)
+//	    r.HandleFunc("/projects", ProjectEndpoint)
 //
-//      // Apply the CORS middleware to our top-level router, with the defaults.
-//      http.ListenAndServe(":8000", handlers.CORS()(r))
-//  }
-//
+//	    // Apply the CORS middleware to our top-level router, with the defaults.
+//	    http.ListenAndServe(":8000", handlers.CORS()(r))
+//	}
 func CORS(opts ...CORSOption) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		ch := parseCORSOptions(opts...)
@@ -298,7 +297,7 @@ func MaxAge(age int) CORSOption {
 			age = 600
 		}
 
-		ch.maxAge = age
+		ch.maxAge = &age
 		return nil
 	}
 }
