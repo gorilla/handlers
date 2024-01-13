@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -148,7 +149,7 @@ func appendQuoted(buf []byte, s string) []byte {
 // buildCommonLogLine builds a log entry for req in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int, size int) []byte {
+func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int, size int, vhost bool) []byte {
 	username := "-"
 	if url.User != nil {
 		if name := url.User.Username(); name != "" {
@@ -163,6 +164,18 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 
 	uri := req.RequestURI
 
+	virtualHost := ""
+	if vhost {
+		virtualHost = "-"
+		if req.Method != http.MethodConnect && !strings.Contains(req.Host, ":") {
+			a, ok := req.Context().Value(http.LocalAddrContextKey).(net.Addr)
+			if ok {
+				s := a.String()
+				virtualHost = req.Host + s[strings.LastIndex(s, ":"):]
+			}
+		}
+	}
+
 	// Requests using the CONNECT method over HTTP/2.0 must use
 	// the authority field (aka r.Host) to identify the target.
 	// Refer: https://httpwg.github.io/specs/rfc7540.html#CONNECT
@@ -173,7 +186,11 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 		uri = url.RequestURI()
 	}
 
-	buf := make([]byte, 0, 3*(len(host)+len(username)+len(req.Method)+len(uri)+len(req.Proto)+50)/2)
+	buf := make([]byte, 0, 3*(len(virtualHost)+len(host)+len(username)+len(req.Method)+len(uri)+len(req.Proto)+50)/2)
+	if vhost {
+		buf = append(buf, virtualHost...)
+		buf = append(buf, ' ')
+	}
 	buf = append(buf, host...)
 	buf = append(buf, " - "...)
 	buf = append(buf, username...)
@@ -196,7 +213,7 @@ func buildCommonLogLine(req *http.Request, url url.URL, ts time.Time, status int
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
 func writeLog(writer io.Writer, params LogFormatterParams) {
-	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size)
+	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size, false)
 	buf = append(buf, '\n')
 	_, _ = writer.Write(buf)
 }
@@ -205,7 +222,19 @@ func writeLog(writer io.Writer, params LogFormatterParams) {
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
 func writeCombinedLog(writer io.Writer, params LogFormatterParams) {
-	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size)
+	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size, false)
+	buf = append(buf, ` "`...)
+	buf = appendQuoted(buf, params.Request.Referer())
+	buf = append(buf, `" "`...)
+	buf = appendQuoted(buf, params.Request.UserAgent())
+	buf = append(buf, '"', '\n')
+	_, _ = writer.Write(buf)
+}
+
+// writeVhostCombinedLog writes a log entry for req to w in Apache Combined Log Format
+// with VirtualHost.
+func writeVhostCombinedLog(writer io.Writer, params LogFormatterParams) {
+	buf := buildCommonLogLine(params.Request, params.URL, params.TimeStamp, params.StatusCode, params.Size, true)
 	buf = append(buf, ` "`...)
 	buf = appendQuoted(buf, params.Request.Referer())
 	buf = append(buf, `" "`...)
@@ -222,6 +251,16 @@ func writeCombinedLog(writer io.Writer, params LogFormatterParams) {
 // LoggingHandler always sets the ident field of the log to -.
 func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h, writeCombinedLog}
+}
+
+// VhostCombinedVLoggingHandler return a http.Handler that wraps h and logs requests to out in
+// Apache Combined Log Format with VirtualHost.
+//
+// See http://httpd.apache.org/docs/2.2/logs.html#combined for a description of this format.
+//
+// LoggingHandler always sets the ident field of the log to -.
+func VhostCombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
+	return loggingHandler{out, h, writeVhostCombinedLog}
 }
 
 // LoggingHandler return a http.Handler that wraps h and logs requests to out in

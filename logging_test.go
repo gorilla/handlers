@@ -6,12 +6,14 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/fs"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -229,6 +231,30 @@ func TestLogFormatterCombinedLog_Scenario5(t *testing.T) {
 	LoggingScenario5(t, formatter, expected)
 }
 
+func TestLogFormatterVhostCombinedLog_Scenario1(t *testing.T) {
+	formatter := writeVhostCombinedLog
+	expected := "- 192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	LoggingScenario1(t, formatter, expected)
+}
+
+func TestLogFormatterVhostCombinedLog_Scenario2(t *testing.T) {
+	formatter := writeVhostCombinedLog
+	expected := "- 192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"CONNECT www.example.com:443 HTTP/2.0\" 200 100 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	LoggingScenario2(t, formatter, expected)
+}
+
+func TestLogFormatterVhostCombinedLog_Scenario3(t *testing.T) {
+	formatter := writeVhostCombinedLog
+	expected := "example.com:8080 192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 \"http://example.com\" " +
+		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
+		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
+	LoggingScenario3(t, formatter, expected)
+}
+
 func LoggingScenario1(t *testing.T, formatter LogFormatter, expected string) {
 	loc, err := time.LoadLocation("Europe/Warsaw")
 	if err != nil {
@@ -265,6 +291,7 @@ func LoggingScenario2(t *testing.T, formatter LogFormatter, expected string) {
 
 	// CONNECT request over http/2.0
 	req := constructConnectRequest()
+	req = req.WithContext(constructVhostAddrCtx("10.0.0.1", 8080))
 
 	buf := new(bytes.Buffer)
 	params := LogFormatterParams{
@@ -292,6 +319,7 @@ func LoggingScenario3(t *testing.T, formatter LogFormatter, expected string) {
 	// Request with an unauthorized user
 	req := constructTypicalRequestOk()
 	req.URL.User = url.User("kamil")
+	req = req.WithContext(constructVhostAddrCtx("10.0.0.1", 8080))
 
 	buf := new(bytes.Buffer)
 	params := LogFormatterParams{
@@ -400,4 +428,12 @@ func constructEncodedRequest() *http.Request {
 	req := constructTypicalRequestOk()
 	req.URL, _ = url.Parse("http://example.com/test?abc=hello%20world&a=b%3F")
 	return req
+}
+
+func constructVhostAddrCtx(addr string, port int) context.Context {
+	ip := net.ParseIP(addr)
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, http.LocalAddrContextKey, &net.TCPAddr{IP: ip, Port: port})
+	return ctx
 }
