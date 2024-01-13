@@ -52,6 +52,10 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	if url.User != req.URL.User {
+		url.User = req.URL.User
+	}
+
 	params := LogFormatterParams{
 		Request:    req,
 		URL:        url,

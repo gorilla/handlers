@@ -129,6 +129,22 @@ func TestLogPathRewrites(t *testing.T) {
 	}
 }
 
+func TestLogUser(t *testing.T) {
+	var buf bytes.Buffer
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		req.URL.User = url.User("foo")
+		w.WriteHeader(http.StatusOK)
+	})
+	logger := LoggingHandler(&buf, handler)
+
+	logger.ServeHTTP(httptest.NewRecorder(), newRequest(http.MethodGet, "/"))
+
+	if !strings.Contains(buf.String(), "- foo [") {
+		t.Fatalf("Got log %#v, wanted substring %#v", buf.String(), "- foo [")
+	}
+}
+
 func BenchmarkWriteLog(b *testing.B) {
 	loc, err := time.LoadLocation("Europe/Warsaw")
 	if err != nil {
