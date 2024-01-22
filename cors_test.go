@@ -298,6 +298,50 @@ func TestCORSHandlerMaxAgeForPreflight(t *testing.T) {
 	}
 }
 
+func TestCORSHandlerZeroMaxAgeForPreflight(t *testing.T) {
+	r := newRequest(http.MethodOptions, "http://www.example.com")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, http.MethodPost)
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS(MaxAge(0))(testHandler).ServeHTTP(rr, r)
+	resp := rr.Result()
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
+	}
+
+	header := resp.Header.Get(corsMaxAgeHeader)
+	if got, want := header, "0"; got != want {
+		t.Fatalf("bad header: expected %q to be %q, got %q.", corsMaxAgeHeader, want, got)
+	}
+}
+
+func TestCORSHandlerNoMaxAgeForPreflight(t *testing.T) {
+	r := newRequest(http.MethodOptions, "http://www.example.com")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, http.MethodPost)
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS()(testHandler).ServeHTTP(rr, r)
+	resp := rr.Result()
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
+	}
+
+	header := resp.Header.Get(corsMaxAgeHeader)
+	if header != "" {
+		t.Fatalf("unexpected header %q", corsMaxAgeHeader)
+	}
+}
+
 func TestCORSHandlerAllowedCredentials(t *testing.T) {
 	r := newRequest(http.MethodGet, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())
