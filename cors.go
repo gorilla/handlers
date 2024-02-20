@@ -16,7 +16,7 @@ type cors struct {
 	allowedOrigins         []string
 	allowedOriginValidator OriginValidator
 	exposedHeaders         []string
-	maxAge                 int
+	maxAge                 *int
 	ignoreOptions          bool
 	allowCredentials       bool
 	optionStatusCode       int
@@ -94,8 +94,8 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(corsAllowHeadersHeader, strings.Join(allowedHeaders, ","))
 		}
 
-		if ch.maxAge > 0 {
-			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(ch.maxAge))
+		if ch.maxAge != nil {
+			w.Header().Set(corsMaxAgeHeader, strconv.Itoa(*ch.maxAge))
 		}
 
 		if !ch.isMatch(method, defaultCorsMethods) {
@@ -295,7 +295,7 @@ func MaxAge(age int) CORSOption {
 			age = 600
 		}
 
-		ch.maxAge = age
+		ch.maxAge = &age
 		return nil
 	}
 }
