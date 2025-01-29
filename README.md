@@ -25,8 +25,7 @@ with Go's `net/http` package (or any framework supporting `http.Handler`), inclu
   domains (i.e. multiple CNAME aliases).
 * [**RecoveryHandler**](https://godoc.org/github.com/gorilla/handlers#RecoveryHandler) for recovering from unexpected panics.
 
-Other handlers are documented [on the Gorilla
-website](https://www.gorillatoolkit.org/pkg/handlers).
+Read the full documentation [here](https://pkg.go.dev/github.com/gorilla/handlers#section-documentation).
 
 ## Example
 
