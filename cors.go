@@ -253,7 +253,7 @@ func AllowedOriginValidator(fn OriginValidator) CORSOption {
 }
 
 // OptionStatusCode sets a custom status code on the OPTIONS requests.
-// Default behaviour sets it to 200 to reflect best practices. This is option is not mandatory
+// Default behaviour sets it to 200 to reflect best practices. This option is not mandatory
 // and can be used if you need a custom status code (i.e 204).
 //
 // More informations on the spec:
