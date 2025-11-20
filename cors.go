@@ -184,7 +184,7 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 // AllowedHeaders adds the provided headers to the list of allowed headers in a
 // CORS request.
 // This is an append operation so the headers Accept, Accept-Language,
-// and Content-Language are always allowed.
+// Content-Language and Origin are always allowed.
 // Content-Type must be explicitly declared if accepting Content-Types other than
 // application/x-www-form-urlencoded, multipart/form-data, or text/plain.
 func AllowedHeaders(headers []string) CORSOption {
