@@ -27,6 +27,7 @@ func TestGetIP(t *testing.T) {
 		{forwarded, `for=192.0.2.60;proto=http;by=203.0.113.43`, `192.0.2.60`},        // Multiple params
 		{forwarded, `for=192.0.2.43, for=198.51.100.17`, "192.0.2.43"},                // Multiple params
 		{forwarded, `for="workstation.local",for=198.51.100.17`, "workstation.local"}, // Hostname
+		{forwarded, `for=_gazonk(test);proto=http`, "_gazonk(test)"},                  // Token with parentheses
 	}
 
 	for _, v := range headers {
