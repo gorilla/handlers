@@ -109,10 +109,6 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(corsAllowCredentialsHeader, "true")
 	}
 
-	if len(ch.allowedOrigins) > 1 {
-		w.Header().Set(corsVaryHeader, corsOriginHeader)
-	}
-
 	returnOrigin := origin
 	if ch.allowedOriginValidator == nil && len(ch.allowedOrigins) == 0 {
 		returnOrigin = "*"
@@ -127,6 +123,24 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	// Whenever we echo the caller's Origin back (any non-wildcard value) the
+	// response depends on it, so tell shared caches to key on Origin. Without
+	// this a cache in front of the app can serve one origin's credentialed CORS
+	// response to a request from another origin. rs/cors and go-chi/cors set
+	// this on every reflected response for the same reason. The wildcard "*"
+	// answer is identical for every origin, so it needs no Vary: Origin (see the
+	// revert of #114 in #122).
+	if returnOrigin != corsOriginMatchAll {
+		w.Header().Add(corsVaryHeader, corsOriginHeader)
+	}
+	// A preflight response also derives Allow-Methods/Allow-Headers from the
+	// request's Access-Control-Request-* headers, so vary on those too.
+	if r.Method == corsOptionMethod {
+		w.Header().Add(corsVaryHeader, corsRequestMethodHeader)
+		w.Header().Add(corsVaryHeader, corsRequestHeadersHeader)
+	}
+
 	w.Header().Set(corsAllowOriginHeader, returnOrigin)
 
 	if r.Method == corsOptionMethod {
