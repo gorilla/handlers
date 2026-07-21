@@ -212,13 +212,16 @@ func AllowedMethods(methods []string) CORSOption {
 	return func(ch *cors) error {
 		ch.allowedMethods = []string{}
 		for _, v := range methods {
-			normalizedMethod := strings.ToUpper(strings.TrimSpace(v))
-			if normalizedMethod == "" {
+			// Preserve method case. HTTP methods are case-sensitive; only a small
+			// set of legacy names is normalized by Fetch. Uppercasing here
+			// breaks non-uppercase methods such as "patch" (#253).
+			method := strings.TrimSpace(v)
+			if method == "" {
 				continue
 			}
 
-			if !ch.isMatch(normalizedMethod, ch.allowedMethods) {
-				ch.allowedMethods = append(ch.allowedMethods, normalizedMethod)
+			if !ch.isMatch(method, ch.allowedMethods) {
+				ch.allowedMethods = append(ch.allowedMethods, method)
 			}
 		}
 
