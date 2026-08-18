@@ -7,6 +7,7 @@ package handlers
 import (
 	"bufio"
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"io"
 	"log"
@@ -136,8 +137,17 @@ func TestCompressHandlerGzip(t *testing.T) {
 	if resp.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Errorf("wrong content type, got %s want %s", resp.Header.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
-	if w.Body.Len() != 72 {
-		t.Errorf("wrong len, got %d want %d", w.Body.Len(), 72)
+	reader, err := gzip.NewReader(w.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	decompressed, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := bytes.Repeat([]byte("Gorilla!\n"), 1024); !bytes.Equal(decompressed, want) {
+		t.Error("gzip body did not decompress to the original content")
 	}
 	if l := resp.Header.Get("Content-Length"); l != "" {
 		t.Errorf("wrong content-length. got %q expected %q", l, "")
@@ -154,8 +164,14 @@ func TestCompressHandlerDeflate(t *testing.T) {
 	if resp.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
 		t.Fatalf("wrong content type, got %s want %s", resp.Header.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
-	if w.Body.Len() != 54 {
-		t.Fatalf("wrong len, got %d want %d", w.Body.Len(), 54)
+	reader := flate.NewReader(w.Body)
+	defer reader.Close()
+	decompressed, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := bytes.Repeat([]byte("Gorilla!\n"), 1024); !bytes.Equal(decompressed, want) {
+		t.Error("deflate body did not decompress to the original content")
 	}
 }
 

@@ -109,10 +109,16 @@ func TestHeaderWrites(t *testing.T) {
 	defer srv.Close()
 	srv.Config.ErrorLog = tl
 
-	_, err := http.Get(srv.URL)
+	client := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Get(srv.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer resp.Body.Close()
 
 	err = buf.Flush()
 	if err != nil {
