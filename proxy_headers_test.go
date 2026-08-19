@@ -101,11 +101,43 @@ func TestProxyHeaders(t *testing.T) {
 	}
 
 	if proto != r.Header.Get(xForwardedProto) {
-		t.Fatalf("wrong address: got %s want %s", proto,
+		t.Fatalf("wrong proto: got %s want %s", proto,
 			r.Header.Get(xForwardedProto))
 	}
 	if host != r.Header.Get(xForwardedHost) {
-		t.Fatalf("wrong address: got %s want %s", host,
+		t.Fatalf("wrong host: got %s want %s", host,
 			r.Header.Get(xForwardedHost))
+	}
+}
+
+func TestProxyHeaders_NoHeaders(t *testing.T) {
+	rr := httptest.NewRecorder()
+	r := newRequest(http.MethodGet, "http://localhost:8080/")
+	r.RemoteAddr = "127.0.0.1:12345"
+
+	var (
+		addr  string
+		proto string
+		host  string
+	)
+	ProxyHeaders(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			addr = r.RemoteAddr
+			proto = r.URL.Scheme
+			host = r.Host
+		})).ServeHTTP(rr, r)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("bad status: got %d want %d", rr.Code, http.StatusOK)
+	}
+
+	if addr != "127.0.0.1:12345" {
+		t.Fatalf("wrong address: got %s want %s", addr, "127.0.0.1:12345")
+	}
+	if proto != "http" {
+		t.Fatalf("wrong proto: got %s want %s", proto, "http")
+	}
+	if host != "localhost:8080" {
+		t.Fatalf("wrong host: got %s want %s", host, "localhost:8080")
 	}
 }
