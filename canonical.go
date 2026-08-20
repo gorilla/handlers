@@ -44,13 +44,13 @@ func (c canonical) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if dest.Scheme == "" || dest.Host == "" {
 		// Call the next handler if the scheme or host are empty.
-		// Note that url.Parse won't fail on in this case.
+		// Note that url.Parse won't fail in this case.
 		c.h.ServeHTTP(w, r)
 		return
 	}
 
 	if !strings.EqualFold(cleanHost(r.Host), dest.Host) {
-		// Re-build the destination URL
+		// Re-build the destination URL.
 		dest := dest.Scheme + "://" + dest.Host + r.URL.Path
 		if r.URL.RawQuery != "" {
 			dest += "?" + r.URL.RawQuery
