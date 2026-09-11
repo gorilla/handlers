@@ -418,3 +418,33 @@ func TestCORSAllowStar(t *testing.T) {
 		t.Fatalf("bad header: expected %q to be %q, got %q.", corsAllowOriginHeader, want, got)
 	}
 }
+
+func TestHandlePreflightLowercaseAllowedMethod(t *testing.T) {
+	const (
+		origin = "https://foo.com"
+		method = "patch"
+	)
+	req, _ := http.NewRequest(http.MethodOptions, "http://example.com/foo", nil)
+	req.Header.Add("Origin", origin)
+	req.Header.Add("Access-Control-Request-Method", method)
+
+	rr := httptest.NewRecorder()
+
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	cors := CORS(
+		AllowedOrigins([]string{origin}),
+		AllowedMethods([]string{method}),
+	)
+	cors(testHandler).ServeHTTP(rr, req)
+	resp := rr.Result()
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("bad status: got %v want %v", got, want)
+	}
+
+	header := resp.Header.Get(corsAllowMethodsHeader)
+	if got, want := header, method; got != want {
+		t.Errorf("bad header: expected %q method header, got %q", want, got)
+	}
+}
