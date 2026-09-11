@@ -19,10 +19,16 @@ const acceptEncoding string = "Accept-Encoding"
 type compressResponseWriter struct {
 	compressor io.Writer
 	w          http.ResponseWriter
+	encoding   string
 }
 
 func (cw *compressResponseWriter) WriteHeader(c int) {
 	cw.w.Header().Del("Content-Length")
+	// Go 1.23+ ServeContent/FileServer clears Content-Encoding on errors; re-apply
+	// because we still compress the body (#259).
+	if cw.encoding != "" {
+		cw.w.Header().Set("Content-Encoding", cw.encoding)
+	}
 	cw.w.WriteHeader(c)
 }
 
@@ -32,6 +38,9 @@ func (cw *compressResponseWriter) Write(b []byte) (int, error) {
 		h.Set("Content-Type", http.DetectContentType(b))
 	}
 	h.Del("Content-Length")
+	if cw.encoding != "" {
+		h.Set("Content-Encoding", cw.encoding)
+	}
 
 	return cw.compressor.Write(b)
 }
@@ -121,6 +130,7 @@ func CompressHandlerLevel(h http.Handler, level int) http.Handler {
 		cw := &compressResponseWriter{
 			w:          w,
 			compressor: encWriter,
+			encoding:   encoding,
 		}
 
 		w = httpsnoop.Wrap(w, httpsnoop.Hooks{

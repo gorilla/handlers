@@ -296,3 +296,26 @@ func TestCompressHandlerDoesntInventInterfaces(t *testing.T) {
 	r.Header.Set(acceptEncoding, "gzip")
 	h.ServeHTTP(rw, r)
 }
+
+func TestCompressHandlerFileServer404KeepsEncoding(t *testing.T) {
+	dir := t.TempDir()
+	s := httptest.NewServer(CompressHandler(http.FileServer(http.Dir(dir))))
+	defer s.Close()
+
+	req, err := http.NewRequest(http.MethodGet, s.URL+"/missing.txt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Accept-Encoding", "gzip")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Encoding"); got != "gzip" {
+		t.Fatalf("Content-Encoding = %q, want gzip (body is still compressed)", got)
+	}
+}
