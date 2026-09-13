@@ -22,7 +22,9 @@ var (
 	forwarded = http.CanonicalHeaderKey("Forwarded")
 	// Allows for a sub-match of the first value after 'for=' to the next
 	// comma, semi-colon or space. The match is case-insensitive.
-	forRegex = regexp.MustCompile(`(?i)(?:for=)([^(;|,| )]+)`)
+	// The character class is [^;, ] — not an alternation. The previous
+	// form [^(;|,| )] treated | ( ) as delimiters, which RFC 7239 does not.
+	forRegex = regexp.MustCompile(`(?i)(?:for=)([^;, ]+)`)
 	// Allows for a sub-match for the first instance of scheme (http|https)
 	// prefixed by 'proto='. The match is case-insensitive.
 	protoRegex = regexp.MustCompile(`(?i)(?:proto=)(https|http)`)
