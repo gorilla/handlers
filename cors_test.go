@@ -258,6 +258,41 @@ func TestCORSHandlerAllowedHeaderForPreflight(t *testing.T) {
 	}
 }
 
+func TestCORSHandlerOriginNotADefaultAllowedRequestHeader(t *testing.T) {
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, http.MethodGet)
+	r.Header.Set(corsRequestHeadersHeader, corsOriginHeader)
+
+	rr := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS()(testHandler).ServeHTTP(rr, r)
+	resp := rr.Result()
+	if got, want := resp.StatusCode, http.StatusForbidden; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
+	}
+}
+
+func TestCORSHandlerOriginAllowedWhenExplicitlyConfigured(t *testing.T) {
+	r := newRequest(http.MethodOptions, "http://www.example.com/")
+	r.Header.Set("Origin", r.URL.String())
+	r.Header.Set(corsRequestMethodHeader, http.MethodGet)
+	r.Header.Set(corsRequestHeadersHeader, corsOriginHeader)
+
+	rr := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS(AllowedHeaders([]string{corsOriginHeader}))(testHandler).ServeHTTP(rr, r)
+	resp := rr.Result()
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Fatalf("bad status: got %v want %v", got, want)
+	}
+	if got, want := resp.Header.Get(corsAllowHeadersHeader), corsOriginHeader; got != want {
+		t.Fatalf("bad header: expected %q, got %q", want, got)
+	}
+}
+
 func TestCORSHandlerInvalidHeaderForPreflightForbidden(t *testing.T) {
 	r := newRequest(http.MethodOptions, "http://www.example.com/")
 	r.Header.Set("Origin", r.URL.String())

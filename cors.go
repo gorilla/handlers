@@ -28,8 +28,10 @@ type OriginValidator func(string) bool
 var (
 	defaultCorsOptionStatusCode = http.StatusOK
 	defaultCorsMethods          = []string{http.MethodGet, http.MethodHead, http.MethodPost}
-	defaultCorsHeaders          = []string{"Accept", "Accept-Language", "Content-Language", "Origin"}
-	// (WebKit/Safari v9 sends the Origin header by default in AJAX requests).
+	// CORS-safelisted request headers (Fetch). Origin is a forbidden request
+	// header set by the user agent, so listing it in Allow-Headers is never
+	// necessary. See https://github.com/gorilla/handlers/issues/245
+	defaultCorsHeaders = []string{"Accept", "Accept-Language", "Content-Language"}
 )
 
 const (
