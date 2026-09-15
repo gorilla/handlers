@@ -18,20 +18,28 @@ import (
 //
 // If the request's method is OPTIONS and OPTIONS is not a key in the map then
 // the handler responds with a status of 200 and sets the Allow header to a
-// comma-separated list of available methods.
+// comma-separated list of available methods (always including OPTIONS).
 //
 // If the request's method doesn't match any of its keys the handler responds
 // with a status of HTTP 405 "Method Not Allowed" and sets the Allow header to a
-// comma-separated list of available methods.
+// comma-separated list of available methods (always including OPTIONS, which
+// MethodHandler implements even when the map has no OPTIONS entry).
 type MethodHandler map[string]http.Handler
 
 func (h MethodHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if handler, ok := h[req.Method]; ok {
 		handler.ServeHTTP(w, req)
 	} else {
-		allow := []string{}
+		allow := make([]string, 0, len(h)+1)
+		hasOptions := false
 		for k := range h {
+			if k == http.MethodOptions {
+				hasOptions = true
+			}
 			allow = append(allow, k)
+		}
+		if !hasOptions {
+			allow = append(allow, http.MethodOptions)
 		}
 		sort.Strings(allow)
 		w.Header().Set("Allow", strings.Join(allow, ", "))

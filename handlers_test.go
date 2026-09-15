@@ -42,19 +42,19 @@ func TestMethodHandler(t *testing.T) {
 		allow   string // Contents of the Allow header
 		body    string
 	}{
-		// No handlers
-		{newRequest(http.MethodGet, "/foo"), MethodHandler{}, http.StatusMethodNotAllowed, "", notAllowed},
-		{newRequest(http.MethodOptions, "/foo"), MethodHandler{}, http.StatusOK, "", ""},
+		// No handlers — OPTIONS is still implemented, so Allow lists it.
+		{newRequest(http.MethodGet, "/foo"), MethodHandler{}, http.StatusMethodNotAllowed, http.MethodOptions, notAllowed},
+		{newRequest(http.MethodOptions, "/foo"), MethodHandler{}, http.StatusOK, http.MethodOptions, ""},
 
 		// A single handler
 		{newRequest(http.MethodGet, "/foo"), MethodHandler{http.MethodGet: okHandler}, http.StatusOK, "", ok},
-		{newRequest(http.MethodPost, "/foo"), MethodHandler{http.MethodGet: okHandler}, http.StatusMethodNotAllowed, http.MethodGet, notAllowed},
+		{newRequest(http.MethodPost, "/foo"), MethodHandler{http.MethodGet: okHandler}, http.StatusMethodNotAllowed, "GET, OPTIONS", notAllowed},
 
 		// Multiple handlers
 		{newRequest(http.MethodGet, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "", ok},
 		{newRequest(http.MethodPost, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "", ok},
-		{newRequest(http.MethodDelete, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusMethodNotAllowed, "GET, POST", notAllowed},
-		{newRequest(http.MethodOptions, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "GET, POST", ""},
+		{newRequest(http.MethodDelete, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusMethodNotAllowed, "GET, OPTIONS, POST", notAllowed},
+		{newRequest(http.MethodOptions, "/foo"), MethodHandler{http.MethodGet: okHandler, http.MethodPost: okHandler}, http.StatusOK, "GET, OPTIONS, POST", ""},
 
 		// Override OPTIONS
 		{newRequest(http.MethodOptions, "/foo"), MethodHandler{http.MethodOptions: okHandler}, http.StatusOK, "", ok},
