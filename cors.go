@@ -48,6 +48,10 @@ const (
 )
 
 func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if ch.responseVariesByOrigin() {
+		w.Header().Add(corsVaryHeader, corsOriginHeader)
+	}
+
 	origin := r.Header.Get(corsOriginHeader)
 	if !ch.isOriginAllowed(origin) {
 		if r.Method != corsOptionMethod || ch.ignoreOptions {
@@ -107,10 +111,6 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if ch.allowCredentials {
 		w.Header().Set(corsAllowCredentialsHeader, "true")
-	}
-
-	if len(ch.allowedOrigins) > 1 {
-		w.Header().Set(corsVaryHeader, corsOriginHeader)
 	}
 
 	returnOrigin := origin
@@ -317,6 +317,22 @@ func AllowCredentials() CORSOption {
 		ch.allowCredentials = true
 		return nil
 	}
+}
+
+// responseVariesByOrigin reports whether Access-Control-Allow-Origin depends
+// on the request Origin. A static * (default or AllowedOrigins("*")) does not
+// vary; an allow list or a validator does, including for disallowed origins.
+func (ch *cors) responseVariesByOrigin() bool {
+	if ch.allowedOriginValidator != nil {
+		return true
+	}
+	if len(ch.allowedOrigins) == 0 {
+		return false
+	}
+	if len(ch.allowedOrigins) == 1 && ch.allowedOrigins[0] == corsOriginMatchAll {
+		return false
+	}
+	return true
 }
 
 func (ch *cors) isOriginAllowed(origin string) bool {
