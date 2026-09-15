@@ -340,6 +340,60 @@ func TestCORSHandlerMultipleAllowOriginsSetsVaryHeader(t *testing.T) {
 	}
 }
 
+func TestCORSHandlerDisallowedOriginSetsVaryHeader(t *testing.T) {
+	r := newRequest(http.MethodGet, "https://backend.com/")
+	r.Header.Set("Origin", "https://disallowed.example")
+
+	rr := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS(AllowedOrigins([]string{"https://example.com", "https://example.org"}))(testHandler).ServeHTTP(rr, r)
+	resp := rr.Result()
+
+	if status := resp.StatusCode; status != http.StatusOK {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	}
+	if got, want := resp.Header.Get(corsAllowOriginHeader), ""; got != want {
+		t.Fatalf("bad header: expected %s to be %q, got %q.", corsAllowOriginHeader, want, got)
+	}
+	if got, want := resp.Header.Get(corsVaryHeader), corsOriginHeader; got != want {
+		t.Fatalf("bad header: expected %s to be %q, got %q.", corsVaryHeader, want, got)
+	}
+}
+
+func TestCORSOriginValidatorSetsVaryHeader(t *testing.T) {
+	r := newRequest(http.MethodGet, "http://a.example.com")
+	r.Header.Set("Origin", r.URL.String())
+
+	rr := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	originValidator := func(origin string) bool {
+		return strings.HasSuffix(origin, ".example.com")
+	}
+
+	CORS(AllowedOriginValidator(originValidator))(testHandler).ServeHTTP(rr, r)
+	resp := rr.Result()
+
+	if got, want := resp.Header.Get(corsVaryHeader), corsOriginHeader; got != want {
+		t.Fatalf("bad header: expected %s to be %q, got %q.", corsVaryHeader, want, got)
+	}
+}
+
+func TestCORSAllowStarOmitsVaryHeader(t *testing.T) {
+	r := newRequest(http.MethodGet, "http://a.example.com")
+	r.Header.Set("Origin", r.URL.String())
+
+	rr := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	CORS()(testHandler).ServeHTTP(rr, r)
+	resp := rr.Result()
+
+	if got, want := resp.Header.Get(corsVaryHeader), ""; got != want {
+		t.Fatalf("bad header: expected %s to be %q, got %q.", corsVaryHeader, want, got)
+	}
+}
+
 func TestCORSWithMultipleHandlers(t *testing.T) {
 	var lastHandledBy string
 	corsMiddleware := CORS()
