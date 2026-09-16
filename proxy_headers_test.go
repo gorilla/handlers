@@ -16,6 +16,9 @@ func TestGetIP(t *testing.T) {
 	headers := []headerTable{
 		{xForwardedFor, "8.8.8.8", "8.8.8.8"},                                   // Single address
 		{xForwardedFor, "8.8.8.8, 8.8.4.4", "8.8.8.8"},                          // Multiple
+		{xForwardedFor, "8.8.8.8,8.8.4.4, 1.1.1.1", "8.8.8.8"},                  // No space after first comma
+		{xForwardedFor, "8.8.8.8 , 8.8.4.4", "8.8.8.8"},                         // Space before comma
+		{xForwardedFor, "8.8.8.8\t, 8.8.4.4", "8.8.8.8"},                        // Tab before comma
 		{xForwardedFor, "[2001:db8:cafe::17]:4711", "[2001:db8:cafe::17]:4711"}, // IPv6 address
 		{xForwardedFor, "", ""},                                                 // None
 		{xRealIP, "8.8.8.8", "8.8.8.8"},                                         // Single address

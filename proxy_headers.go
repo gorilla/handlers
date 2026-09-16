@@ -73,11 +73,9 @@ func getIP(r *http.Request) string {
 		// Only grab the first (client) address. Note that '192.168.0.1,
 		// 10.1.1.1' is a valid key for X-Forwarded-For where addresses after
 		// the first may represent forwarding proxies earlier in the chain.
-		s := strings.Index(fwd, ", ")
-		if s == -1 {
-			s = len(fwd)
-		}
-		addr = fwd[:s]
+		// RFC 2616/7230 list items are comma-separated with optional LWS, so
+		// split on comma (not ", ") and trim space/tab around the client IP.
+		addr = strings.TrimSpace(strings.SplitN(fwd, ",", 2)[0])
 	case r.Header.Get(xRealIP) != "":
 		addr = r.Header.Get(xRealIP)
 	case r.Header.Get(forwarded) != "":
