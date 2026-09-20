@@ -148,7 +148,7 @@ func TestLogUser(t *testing.T) {
 func BenchmarkWriteLog(b *testing.B) {
 	loc, err := time.LoadLocation("Europe/Warsaw")
 	if err != nil {
-		b.Fatalf(err.Error())
+		b.Fatal(err)
 	}
 	ts := time.Date(1983, 0o5, 26, 3, 30, 45, 0, loc)
 
