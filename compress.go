@@ -37,7 +37,8 @@ func (cw *compressResponseWriter) Write(b []byte) (int, error) {
 }
 
 func (cw *compressResponseWriter) ReadFrom(r io.Reader) (int64, error) {
-	return io.Copy(cw.compressor, r)
+	// Hide ReadFrom so io.Copy uses Write for response header handling.
+	return io.Copy(struct{ io.Writer }{cw}, r)
 }
 
 type flusher interface {

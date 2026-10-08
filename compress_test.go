@@ -7,7 +7,9 @@ package handlers
 import (
 	"bufio"
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -17,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -216,6 +219,112 @@ func TestCompressFile(t *testing.T) {
 
 	if got.String() != "hello" {
 		t.Errorf("expected hello, got %q", got.String())
+	}
+}
+
+func TestCompressHandlerCopy(t *testing.T) {
+	payload := strings.Repeat("<html><body>Hello, Gorilla!</body></html>", 32)
+	for _, encoding := range []string{"gzip", "deflate"} {
+		for _, declaredType := range []string{"", "application/custom"} {
+			t.Run(encoding+"/"+declaredType, func(t *testing.T) {
+				s := httptest.NewServer(CompressHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if _, ok := w.(io.ReaderFrom); !ok {
+						t.Error("response writer lost io.ReaderFrom")
+					}
+					w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
+					if declaredType != "" {
+						w.Header().Set("Content-Type", declaredType)
+					}
+					n, err := io.Copy(w, io.LimitReader(strings.NewReader(payload), int64(len(payload))))
+					if err != nil || n != int64(len(payload)) {
+						t.Errorf("copy got (%d, %v), want (%d, nil)", n, err, len(payload))
+					}
+				})))
+				defer s.Close()
+
+				req, err := http.NewRequest(http.MethodGet, s.URL, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Header.Set(acceptEncoding, encoding)
+				resp, err := s.Client().Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer resp.Body.Close()
+				wantType := declaredType
+				if wantType == "" {
+					wantType = "text/html; charset=utf-8"
+				}
+				if got := resp.Header.Get("Content-Type"); got != wantType {
+					t.Errorf("content type got %q, want %q", got, wantType)
+				}
+				if resp.ContentLength == int64(len(payload)) {
+					t.Errorf("compressed response retained raw content length %d", resp.ContentLength)
+				}
+				if got := resp.Header.Get("Content-Encoding"); got != encoding {
+					t.Errorf("content encoding got %q, want %q", got, encoding)
+				}
+				var reader io.ReadCloser
+				if encoding == "gzip" {
+					reader, err = gzip.NewReader(resp.Body)
+					if err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					reader = flate.NewReader(resp.Body)
+				}
+				defer reader.Close()
+				got, err := io.ReadAll(reader)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(got) != payload {
+					t.Errorf("decompressed body got %q, want %q", got, payload)
+				}
+			})
+		}
+	}
+}
+
+type compressCopyFailure struct {
+	err error
+}
+
+func (f compressCopyFailure) Read(p []byte) (int, error) {
+	return copy(p, "hello"), f.err
+}
+
+func (f compressCopyFailure) Write(p []byte) (int, error) {
+	return 2, f.err
+}
+
+func TestCompressReadFromErrors(t *testing.T) {
+	wantErr := errors.New("copy failure")
+	for _, sourceFails := range []bool{true, false} {
+		t.Run(strconv.FormatBool(sourceFails), func(t *testing.T) {
+			w := httptest.NewRecorder()
+			w.Header().Set("Content-Length", "5")
+			var body bytes.Buffer
+			cw := &compressResponseWriter{w: w, compressor: &body}
+			var source io.Reader = compressCopyFailure{err: wantErr}
+			wantCount := int64(5)
+			if !sourceFails {
+				cw.compressor = compressCopyFailure{err: wantErr}
+				source = io.LimitReader(strings.NewReader("hello"), 5)
+				wantCount = 2
+			}
+			n, err := cw.ReadFrom(source)
+			if n != wantCount || err != wantErr {
+				t.Errorf("copy got (%d, %v), want (%d, %v)", n, err, wantCount, wantErr)
+			}
+			if got := w.Header().Get("Content-Length"); got != "" {
+				t.Errorf("content length got %q, want empty", got)
+			}
+			if got := w.Header().Get("Content-Type"); got != contentType {
+				t.Errorf("content type got %q, want %q", got, contentType)
+			}
+		})
 	}
 }
 
