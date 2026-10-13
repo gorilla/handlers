@@ -30,13 +30,49 @@ type LogFormatterParams struct {
 // LogFormatter gives the signature of the formatter function passed to CustomLoggingHandler.
 type LogFormatter func(writer io.Writer, params LogFormatterParams)
 
+// CustomLogger logs request details when a request finishes.
+type CustomLogger interface {
+	Log(params LogFormatterParams)
+}
+
+// StructuredLogger is an interface for structured request loggers.
+// It is equivalent to CustomLogger.
+type StructuredLogger = CustomLogger
+
+// CustomLoggerFunc is an adapter to allow the use of functions as a CustomLogger.
+type CustomLoggerFunc func(params LogFormatterParams)
+
+// Log calls f(params).
+func (f CustomLoggerFunc) Log(params LogFormatterParams) {
+	f(params)
+}
+
+// StructuredLoggerFunc is an adapter to allow the use of functions as a StructuredLogger.
+type StructuredLoggerFunc = CustomLoggerFunc
+
+// LoggingOption configures a logging handler.
+type LoggingOption func(*loggingHandler)
+
+// WithStructuredLogger returns a LoggingOption that sets a StructuredLogger.
+func WithStructuredLogger(logger StructuredLogger) LoggingOption {
+	return func(h *loggingHandler) {
+		h.structuredLogger = logger
+	}
+}
+
+// WithCustomLogger returns a LoggingOption that sets a CustomLogger.
+func WithCustomLogger(logger CustomLogger) LoggingOption {
+	return WithStructuredLogger(logger)
+}
+
 // loggingHandler is the http.Handler implementation for LoggingHandlerTo and its
 // friends
 
 type loggingHandler struct {
-	writer    io.Writer
-	handler   http.Handler
-	formatter LogFormatter
+	writer           io.Writer
+	handler          http.Handler
+	formatter        LogFormatter
+	structuredLogger StructuredLogger
 }
 
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -64,7 +100,13 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		Size:       logger.Size(),
 	}
 
-	h.formatter(h.writer, params)
+	if h.structuredLogger != nil {
+		h.structuredLogger.Log(params)
+	} else if cl, ok := h.writer.(CustomLogger); ok {
+		cl.Log(params)
+	} else if h.formatter != nil {
+		h.formatter(h.writer, params)
+	}
 }
 
 func makeLogger(w http.ResponseWriter) (*responseLogger, http.ResponseWriter) {
@@ -220,8 +262,12 @@ func writeCombinedLog(writer io.Writer, params LogFormatterParams) {
 // See http://httpd.apache.org/docs/2.2/logs.html#combined for a description of this format.
 //
 // LoggingHandler always sets the ident field of the log to -.
-func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
-	return loggingHandler{out, h, writeCombinedLog}
+func CombinedLoggingHandler(out io.Writer, h http.Handler, opts ...LoggingOption) http.Handler {
+	lh := loggingHandler{writer: out, handler: h, formatter: writeCombinedLog}
+	for _, opt := range opts {
+		opt(&lh)
+	}
+	return lh
 }
 
 // LoggingHandler return a http.Handler that wraps h and logs requests to out in
@@ -239,12 +285,39 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //	})
 //	loggedRouter := handlers.LoggingHandler(os.Stdout, r)
 //	http.ListenAndServe(":1123", loggedRouter)
-func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
-	return loggingHandler{out, h, writeLog}
+func LoggingHandler(out io.Writer, h http.Handler, opts ...LoggingOption) http.Handler {
+	lh := loggingHandler{writer: out, handler: h, formatter: writeLog}
+	for _, opt := range opts {
+		opt(&lh)
+	}
+	return lh
 }
 
 // CustomLoggingHandler provides a way to supply a custom log formatter
 // while taking advantage of the mechanisms in this package.
-func CustomLoggingHandler(out io.Writer, h http.Handler, f LogFormatter) http.Handler {
-	return loggingHandler{out, h, f}
+func CustomLoggingHandler(out io.Writer, h http.Handler, f LogFormatter, opts ...LoggingOption) http.Handler {
+	lh := loggingHandler{writer: out, handler: h, formatter: f}
+	for _, opt := range opts {
+		opt(&lh)
+	}
+	return lh
+}
+
+// StructuredLoggingHandler returns an http.Handler that wraps h and logs requests
+// using the provided StructuredLogger.
+func StructuredLoggingHandler(logger StructuredLogger, h http.Handler, opts ...LoggingOption) http.Handler {
+	lh := loggingHandler{
+		handler:          h,
+		structuredLogger: logger,
+	}
+	for _, opt := range opts {
+		opt(&lh)
+	}
+	return lh
+}
+
+// CustomLoggerLoggingHandler returns an http.Handler that wraps h and logs requests
+// using the provided CustomLogger.
+func CustomLoggerLoggingHandler(logger CustomLogger, h http.Handler, opts ...LoggingOption) http.Handler {
+	return StructuredLoggingHandler(logger, h, opts...)
 }

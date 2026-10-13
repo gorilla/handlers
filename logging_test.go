@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"mime/multipart"
 	"net/http"
@@ -400,4 +401,216 @@ func constructEncodedRequest() *http.Request {
 	req := constructTypicalRequestOk()
 	req.URL, _ = url.Parse("http://example.com/test?abc=hello%20world&a=b%3F")
 	return req
+}
+
+type testCustomLogger struct {
+	loggedParams []LogFormatterParams
+}
+
+func (l *testCustomLogger) Log(params LogFormatterParams) {
+	l.loggedParams = append(l.loggedParams, params)
+}
+
+type testWriterCustomLogger struct {
+	bytes.Buffer
+	loggedParams []LogFormatterParams
+}
+
+func (l *testWriterCustomLogger) Log(params LogFormatterParams) {
+	l.loggedParams = append(l.loggedParams, params)
+}
+
+func TestStructuredLoggingHandler(t *testing.T) {
+	customLogger := &testCustomLogger{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte("hello"))
+	})
+
+	loggedHandler := StructuredLoggingHandler(customLogger, handler)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/test", nil)
+
+	loggedHandler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status code: got %d, want %d", rec.Code, http.StatusCreated)
+	}
+	if len(customLogger.loggedParams) != 1 {
+		t.Fatalf("expected 1 logged entry, got %d", len(customLogger.loggedParams))
+	}
+
+	entry := customLogger.loggedParams[0]
+	if entry.StatusCode != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d", http.StatusCreated, entry.StatusCode)
+	}
+	if entry.Size != 5 {
+		t.Fatalf("expected size 5, got %d", entry.Size)
+	}
+	if entry.Request.Method != http.MethodPost {
+		t.Fatalf("expected POST, got %s", entry.Request.Method)
+	}
+	if entry.URL.Path != "/test" {
+		t.Fatalf("expected /test, got %s", entry.URL.Path)
+	}
+}
+
+func TestStructuredLoggerFunc(t *testing.T) {
+	var called bool
+	var loggedStatusCode int
+
+	fn := StructuredLoggerFunc(func(params LogFormatterParams) {
+		called = true
+		loggedStatusCode = params.StatusCode
+	})
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	})
+
+	loggedHandler := StructuredLoggingHandler(fn, handler)
+	loggedHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if !called {
+		t.Fatal("expected StructuredLoggerFunc to be called")
+	}
+	if loggedStatusCode != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, loggedStatusCode)
+	}
+}
+
+func TestCustomLoggerLoggingHandler(t *testing.T) {
+	customLogger := &testCustomLogger{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	loggedHandler := CustomLoggerLoggingHandler(customLogger, handler)
+	loggedHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/custom", nil))
+
+	if len(customLogger.loggedParams) != 1 {
+		t.Fatalf("expected 1 logged entry, got %d", len(customLogger.loggedParams))
+	}
+	if customLogger.loggedParams[0].URL.Path != "/custom" {
+		t.Fatalf("expected path /custom, got %s", customLogger.loggedParams[0].URL.Path)
+	}
+}
+
+func TestLoggingHandler_WithCustomLogger(t *testing.T) {
+	var buf bytes.Buffer
+	customLogger := &testCustomLogger{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	loggedHandler := LoggingHandler(&buf, handler, WithCustomLogger(customLogger))
+	loggedHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/with-option", nil))
+
+	if buf.Len() != 0 {
+		t.Fatalf("expected writer buffer to be empty, got %q", buf.String())
+	}
+	if len(customLogger.loggedParams) != 1 {
+		t.Fatalf("expected 1 logged entry in custom logger, got %d", len(customLogger.loggedParams))
+	}
+}
+
+func TestLoggingHandler_WithStructuredLogger(t *testing.T) {
+	var buf bytes.Buffer
+	customLogger := &testCustomLogger{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	loggedHandler := LoggingHandler(&buf, handler, WithStructuredLogger(customLogger))
+	loggedHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodDelete, "/resource", nil))
+
+	if buf.Len() != 0 {
+		t.Fatalf("expected writer buffer to be empty, got %q", buf.String())
+	}
+	if len(customLogger.loggedParams) != 1 {
+		t.Fatalf("expected 1 logged entry, got %d", len(customLogger.loggedParams))
+	}
+	if customLogger.loggedParams[0].StatusCode != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, customLogger.loggedParams[0].StatusCode)
+	}
+}
+
+func TestLoggingHandler_WriterImplementsCustomLogger(t *testing.T) {
+	writerLogger := &testWriterCustomLogger{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	loggedHandler := LoggingHandler(writerLogger, handler)
+	loggedHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/dual", nil))
+
+	if writerLogger.Len() != 0 {
+		t.Fatalf("expected writer buffer to be empty when CustomLogger is implemented, got %q", writerLogger.String())
+	}
+	if len(writerLogger.loggedParams) != 1 {
+		t.Fatalf("expected 1 logged entry, got %d", len(writerLogger.loggedParams))
+	}
+	if writerLogger.loggedParams[0].URL.Path != "/dual" {
+		t.Fatalf("expected path /dual, got %s", writerLogger.loggedParams[0].URL.Path)
+	}
+}
+
+func TestCombinedLoggingHandler_WithOptions(t *testing.T) {
+	var buf bytes.Buffer
+	customLogger := &testCustomLogger{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	loggedHandler := CombinedLoggingHandler(&buf, handler, WithCustomLogger(customLogger))
+	loggedHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/combined", nil))
+
+	if buf.Len() != 0 {
+		t.Fatalf("expected combined writer buffer to be empty, got %q", buf.String())
+	}
+	if len(customLogger.loggedParams) != 1 {
+		t.Fatalf("expected 1 logged entry, got %d", len(customLogger.loggedParams))
+	}
+}
+
+func TestCustomLoggingHandler_WithOptions(t *testing.T) {
+	var buf bytes.Buffer
+	customLogger := &testCustomLogger{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	formatterCalled := false
+	dummyFormatter := func(writer io.Writer, params LogFormatterParams) {
+		formatterCalled = true
+	}
+
+	loggedHandler := CustomLoggingHandler(&buf, handler, dummyFormatter, WithCustomLogger(customLogger))
+	loggedHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/custom-opt", nil))
+
+	if formatterCalled {
+		t.Fatal("expected dummy formatter to not be called when custom logger is set")
+	}
+	if len(customLogger.loggedParams) != 1 {
+		t.Fatalf("expected 1 logged entry, got %d", len(customLogger.loggedParams))
+	}
+}
+
+func TestStructuredLoggingHandler_NilLogger(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	loggedHandler := StructuredLoggingHandler(nil, handler)
+	rec := httptest.NewRecorder()
+	loggedHandler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/nil", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+	if rec.Body.String() != "ok" {
+		t.Fatalf("expected body ok, got %q", rec.Body.String())
+	}
 }
