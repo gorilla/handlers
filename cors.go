@@ -212,13 +212,13 @@ func AllowedMethods(methods []string) CORSOption {
 	return func(ch *cors) error {
 		ch.allowedMethods = []string{}
 		for _, v := range methods {
-			normalizedMethod := strings.ToUpper(strings.TrimSpace(v))
-			if normalizedMethod == "" {
+			method := strings.TrimSpace(v)
+			if method == "" {
 				continue
 			}
 
-			if !ch.isMatch(normalizedMethod, ch.allowedMethods) {
-				ch.allowedMethods = append(ch.allowedMethods, normalizedMethod)
+			if !ch.isMatch(method, ch.allowedMethods) {
+				ch.allowedMethods = append(ch.allowedMethods, method)
 			}
 		}
 
