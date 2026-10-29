@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"mime/multipart"
 	"net/http"
@@ -22,8 +23,16 @@ import (
 	"time"
 )
 
+type responseRecorderReaderFrom struct {
+	*httptest.ResponseRecorder
+}
+
+func (rr *responseRecorderReaderFrom) ReadFrom(r io.Reader) (int64, error) {
+	return rr.Body.ReadFrom(r)
+}
+
 func TestMakeLogger(t *testing.T) {
-	rec := httptest.NewRecorder()
+	rec := &responseRecorderReaderFrom{httptest.NewRecorder()}
 	logger, w := makeLogger(rec)
 	// initial status
 	if logger.Status() != http.StatusOK {
@@ -42,6 +51,14 @@ func TestMakeLogger(t *testing.T) {
 	}
 	if logger.Size() != len(ok) {
 		t.Fatalf("wrong size, got %d want %d", logger.Size(), len(ok))
+	}
+	// ReadFrom
+	buf := bytes.NewBufferString(ok)
+	if _, err := w.(io.ReaderFrom).ReadFrom(buf); err != nil {
+		t.Fatalf("error while ReadFrom to http.ResponseWriter %v", err)
+	}
+	if logger.Size() != len(ok)*2 {
+		t.Fatalf("wrong size after ReadFrom, got %d want %d", logger.Size(), len(ok)*2)
 	}
 	// Header
 	w.Header().Set("key", "value")
@@ -400,4 +417,38 @@ func constructEncodedRequest() *http.Request {
 	req := constructTypicalRequestOk()
 	req.URL, _ = url.Parse("http://example.com/test?abc=hello%20world&a=b%3F")
 	return req
+}
+
+func TestLoggingHandlerServeContentSize(t *testing.T) {
+	const body = "hello, world"
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeContent(w, r, "", time.Time{}, strings.NewReader(body))
+	})
+	var logBuf bytes.Buffer
+	srv := httptest.NewServer(LoggingHandler(&logBuf, h))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	gotBody, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if string(gotBody) != body {
+		t.Fatalf("body = %q, want %q", gotBody, body)
+	}
+
+	line := strings.TrimSpace(logBuf.String())
+	// Common Log Format ends with: "METHOD path proto" status size
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		t.Fatalf("unexpected log line: %q", line)
+	}
+	sizeField := fields[len(fields)-1]
+	if sizeField != "12" {
+		t.Fatalf("logged size = %q, want 12; line=%q", sizeField, line)
+	}
 }
