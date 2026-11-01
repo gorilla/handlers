@@ -59,6 +59,10 @@ func (l *responseLogger) Write(b []byte) (int, error) {
 
 func (l *responseLogger) WriteHeader(s int) {
 	l.w.WriteHeader(s)
+	// Informational responses do not determine the final response status.
+	if s >= 100 && s < 200 && s != http.StatusSwitchingProtocols {
+		return
+	}
 	l.status = s
 }
 
