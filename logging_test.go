@@ -401,3 +401,34 @@ func constructEncodedRequest() *http.Request {
 	req.URL, _ = url.Parse("http://example.com/test?abc=hello%20world&a=b%3F")
 	return req
 }
+
+type observedLogHandler struct {
+	http.Handler
+	status func() int
+}
+
+func (h observedLogHandler) ObserveLogStatus(w http.ResponseWriter, _ *http.Request) (http.ResponseWriter, func() int) {
+	return w, h.status
+}
+
+func TestObservedLogStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status func() int
+		want   string
+	}{
+		{"no status sent", func() int { return 0 }, "0"},
+		{"upgrade", func() int { return http.StatusSwitchingProtocols }, "101"},
+		{"fallback", nil, "403"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var output bytes.Buffer
+			h := observedLogHandler{http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) }), tc.status}
+			response := httptest.NewRecorder()
+			LoggingHandler(&output, h).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+			if response.Code != http.StatusForbidden || !strings.Contains(output.String(), `" `+tc.want+` 0`) {
+				t.Fatalf("response %d, log %q", response.Code, output.String())
+			}
+		})
+	}
+}

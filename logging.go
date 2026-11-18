@@ -39,11 +39,22 @@ type loggingHandler struct {
 	formatter LogFormatter
 }
 
+// LogStatusObserver supplies the final status for protocols that write their
+// response on a hijacked connection. A nil callback uses the HTTP logger.
+type LogStatusObserver interface {
+	http.Handler
+	ObserveLogStatus(http.ResponseWriter, *http.Request) (http.ResponseWriter, func() int)
+}
+
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	logger, w := makeLogger(w)
 	url := *req.URL
 
+	var observedStatus func() int
+	if observer, ok := h.handler.(LogStatusObserver); ok {
+		w, observedStatus = observer.ObserveLogStatus(w, req)
+	}
 	h.handler.ServeHTTP(w, req)
 	if req.MultipartForm != nil {
 		err := req.MultipartForm.RemoveAll()
@@ -64,6 +75,9 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		Size:       logger.Size(),
 	}
 
+	if observedStatus != nil {
+		params.StatusCode = observedStatus()
+	}
 	h.formatter(h.writer, params)
 }
 
